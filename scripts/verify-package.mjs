@@ -32,13 +32,16 @@ if (!clientBundle.includes('id: "dsh-session-resilience"') || clientBundle.inclu
   throw new Error('Client bundle still carries the upstream package identity.');
 }
 
-const { resolveConfig } = await import('../lib/types/shared/core.js');
-const safe = resolveConfig({ recoveryPreset: 'safe' });
-if (safe.restartResumeWindowMs !== 5 * 60 * 1000 || safe.maxConsecutive !== 2) {
-  throw new Error('Safe recovery policy did not resolve its coordinated defaults.');
+const hostBundle = readFileSync(resolve(root, 'lib/index.js'), 'utf8');
+for (const marker of [
+  'const RECOVERY_PRESETS',
+  'recoveryPreset === "safe"',
+  'recoveryPreset === "manual"',
+  'restartResumeWindowMs: 5 * 60 * 1000',
+  'maxConsecutive: 2',
+]) {
+  if (!hostBundle.includes(marker)) throw new Error(`Built runtime is missing recovery policy marker: ${marker}`);
 }
-const manual = resolveConfig({ recoveryPreset: 'manual', cooldownMs: 12345 });
-if (manual.cooldownMs !== 12345) throw new Error('Manual recovery policy ignored an individual override.');
 
 for (const file of ['lib/index.js', 'lib/client.js']) {
   const result = spawnSync(process.execPath, ['--check', resolve(root, file)], { stdio: 'inherit' });

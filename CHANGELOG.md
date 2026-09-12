@@ -8,3 +8,4 @@
 - Added staged settings, recovery statistics, paused-session controls, transient-error classification, adaptive backoff, and loop protection.
 - Added artifact smoke tests for client registration and helper relaunch readiness.
 - Declared the supported DSH engine range and documented the Plugin Market submission path.
+- Reworked the settings card into a DSH-native control surface with compact fields, module status, and numbered sections.

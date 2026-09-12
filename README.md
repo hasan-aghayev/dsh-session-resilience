@@ -16,6 +16,7 @@ DSH Session Resilience keeps long-running web sessions recoverable when the loca
 - **Recovery policies** — Safe, Balanced, Long task, and Manual coordinate the recovery window, cooldown, retry cap, scan range, and backoff. Manual keeps every individual control editable.
 - **Token-aware reconnect** — The browser waits for the replacement host's actual launch URL before reconnecting, instead of reopening an unauthenticated root page.
 - **One recovery center** — Restart, stop, automatic continuation, loop protection, error classification, notifications, statistics, and paused sessions are managed from one settings card.
+- **DSH-native control surface** — The settings card uses DSH semantic tokens and compact field density, with a custom module rail and numbered control groups instead of a second visual theme.
 - **No false success** — A restart is not reported as ready until the replacement host is reachable and its fresh launch URL has been found.
 - **Small model surface** — The model receives only `restart_dsh` and `shutdown_dsh`; recovery policy and browser controls stay outside the model prompt.
 - **Local-first operation** — Restart markers, helper logs, and control routes are local to the DSH host. The plugin has no analytics or remote service.

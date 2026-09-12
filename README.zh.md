@@ -32,7 +32,7 @@ Bundle patch 会插入 Host 和 Web 客户端条目。包中包含预构建的 `
 
 本仓库用于作为公开版本的事实来源。加入 profile 时请固定到准确 commit；生产 profile 不要使用会移动的分支。
 
-提交到 DSH Plugin Market 之前，请把 `package.json` 中的 `repository`、`homepage` 和 `bugs` 设置为最终公开仓库地址。
+仓库 metadata 已经配置为这个公开 GitHub 仓库。完成本地检查后，可以通过 [dsh.pub/submit](https://dsh.pub/submit) 提交公开 URL。目录服务会校验指定 commit 并生成可审计的目录 pull request；基于 Git 安装不要求先发布到 npm。
 
 ## 控制按钮
 
@@ -95,6 +95,7 @@ Web 侧边栏在状态指示灯旁保留两个紧凑控制：
 ## 兼容性和限制
 
 - 面向带有已发布 `@deepseek-ai/cordis` 和 `@deepseek-ai/dsh-tools` peer 包的 DSH Web profile。
+- 已用 DeepSeek Harness `0.1.5-rc.2` 和 Node `22.19+` 测试；包 metadata 接受 DSH `>=0.1.0-rc.7 <0.2.0`。
 - 替代进程使用 profile 正常的 DSH Web 启动路径和配置端口；插件不会选择 GPU、模型或端口。
 - 重启恢复需要根浏览器会话在接力窗口内重新连接。
 - 如果进程在写入重启标记之前就被强制结束，插件无法提供会话接力。
@@ -107,12 +108,13 @@ Web 侧边栏在状态指示灯旁保留两个紧凑控制：
 
 ```sh
 npm run verify
+npm test
 npm pack --dry-run
 ```
 
-验证脚本会检查 standalone 包身份、bundle patch、发布所需文件和 JavaScript 语法。GitHub workflow 会在每次 push 和 pull request 上重复这些检查。
+验证脚本会检查 standalone 包身份、bundle patch、发布所需文件和 JavaScript 语法。`npm test` 会检查客户端注册和分离式重启辅助进程的发布产物。GitHub workflow 会在每次 push 和 pull request 上重复这些检查。
 
-提交到 DSH Plugin Market 时，使用一个公开仓库，并保证仓库根目录包含本 `package.json`、`cordis.patch.yml`、README、许可证和预构建的 `lib` 文件。补全仓库 metadata 后，再提交准确的 commit。
+提交到 DSH Plugin Market 时，使用一个公开仓库，并保证仓库根目录包含本 `package.json`、`cordis.patch.yml`、README、许可证和预构建的 `lib` 文件。推送准确的 commit 后，打开 [dsh.pub/submit](https://dsh.pub/submit)，提交 `https://github.com/hasan-aghayev/dsh-session-resilience`，再跟随生成的目录 pull request。为了可复现安装，请使用 `npx dshpub add hasan-aghayev/dsh-session-resilience --ref <commit>`。
 
 ## 许可证和说明
 

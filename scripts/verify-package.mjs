@@ -22,6 +22,8 @@ for (const file of requiredFiles) {
 
 if (manifest.name !== 'dsh-session-resilience') throw new Error('Package identity is not standalone.');
 if (!manifest.dsh?.bundle?.patch || !manifest.dsh?.client?.platform) throw new Error('Incomplete DSH manifest.');
+if (manifest.engines?.dsh !== '>=0.1.0-rc.7 <0.2.0') throw new Error('DSH engine range is missing or too broad.');
+if (manifest.scripts?.test !== 'node --test scripts/test-artifact.mjs') throw new Error('Artifact test script is missing.');
 const patch = readFileSync(resolve(root, 'cordis.patch.yml'), 'utf8');
 if (!patch.includes('id: dsh-session-resilience') || !patch.includes("name: 'dsh-session-resilience'")) {
   throw new Error('Bundle patch does not point to the standalone package.');

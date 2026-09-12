@@ -37,7 +37,7 @@ for (const marker of [
   'const RECOVERY_PRESETS',
   'recoveryPreset === "safe"',
   'recoveryPreset === "manual"',
-  'restartResumeWindowMs: 5 * 60 * 1000',
+  'restartResumeWindowMs: 300 * 1e3',
   'maxConsecutive: 2',
 ]) {
   if (!hostBundle.includes(marker)) throw new Error(`Built runtime is missing recovery policy marker: ${marker}`);

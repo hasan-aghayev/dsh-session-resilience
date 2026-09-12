@@ -1,0 +1,75 @@
+{
+  "name": "dsh-session-resilience",
+  "version": "0.1.0",
+  "description": "Safe DSH restart, token-aware reconnect, and policy-based session recovery",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "lib/restart-helper.cjs",
+    "lib/types/**/*.d.ts",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-settings-plugins"
+      ]
+    }
+  },
+  "scripts": {
+    "verify": "node scripts/verify-package.mjs",
+    "pack:check": "npm pack --dry-run"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "session-recovery",
+    "restart",
+    "auto-continue",
+    "resilience"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hasan-aghayev/dsh-session-resilience.git"
+  },
+  "homepage": "https://github.com/hasan-aghayev/dsh-session-resilience#readme",
+  "bugs": {
+    "url": "https://github.com/hasan-aghayev/dsh-session-resilience/issues"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=0.1.0-0",
+    "@deepseek-ai/dsh-tools": ">=0.1.0-0",
+    "react": "^18.2.0"
+  }
+}

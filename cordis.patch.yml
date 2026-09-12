@@ -1,0 +1,4 @@
+# Bundle patch for DSH Session Resilience.
+- insert:
+    - id: dsh-session-resilience
+      name: 'dsh-session-resilience'

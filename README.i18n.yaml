@@ -1,0 +1,6 @@
+# The English and Chinese README files are maintained as a bilingual pair.
+# The standalone repository has no generated documentation gate, so this file
+# records the pairing rule rather than a monorepo git-blob hash.
+pair:
+  - README.md
+  - README.zh.md

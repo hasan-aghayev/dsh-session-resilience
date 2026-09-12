@@ -131,6 +131,10 @@ export const zh = {
   'chrome.inherit': '继承',
   'chrome.on': '开',
   'chrome.off': '关',
+  'chrome.module': 'DSH / 会话韧性',
+  'chrome.ready': '可用',
+  'chrome.locked': '只读',
+  'chrome.policy': '策略',
 } satisfies Record<string, string>;
 
 /** 本插件的键联合。 */
@@ -262,4 +266,8 @@ export const en: Record<SettingsCardKey, string> = {
   'chrome.inherit': 'Inherit',
   'chrome.on': 'On',
   'chrome.off': 'Off',
+  'chrome.module': 'DSH / Session Resilience',
+  'chrome.ready': 'Ready',
+  'chrome.locked': 'Read-only',
+  'chrome.policy': 'Policy',
 };

@@ -124,6 +124,10 @@ export declare const zh: {
     'chrome.inherit': string;
     'chrome.on': string;
     'chrome.off': string;
+    'chrome.module': string;
+    'chrome.ready': string;
+    'chrome.locked': string;
+    'chrome.policy': string;
 };
 /** 本插件的键联合。 */
 export type SettingsCardKey = keyof typeof zh;

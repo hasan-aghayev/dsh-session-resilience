@@ -59,6 +59,10 @@ test('published client registers the settings card and sidebar controls', async 
   const source = await readFile(join(root, 'lib/client.js'), 'utf8');
   vm.runInContext(source, context, { filename: 'lib/client.js' });
   assert.equal(loaderDefinition.id, 'dsh-session-resilience');
+  assert.equal(source.includes('dshAcModuleBar'), true);
+  assert.equal(source.includes('dshAcSectionIndex'), true);
+  assert.equal(source.includes('dshAcRelayMark'), false);
+  assert.equal(source.includes('--dsh-ac-violet'), false);
 
   const registrations = [];
   const effects = [];

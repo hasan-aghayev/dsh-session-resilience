@@ -178,15 +178,13 @@ const PRESET_FIELDS = [
   'backoffMaxMs',
 ] as const;
 
-function RelayMark() {
+function ModuleGlyph() {
   return (
-    <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-      <path className="dshAcRelayArc" d="M9 30c4-12 10-18 19-18 5 0 9 2 12 6" />
-      <path className="dshAcRelayArc dshAcRelayArcEcho" d="M8 35c6 3 12 3 17 0 5-3 8-8 15-9" />
-      <circle className="dshAcRelayNode dshAcRelayNodeStart" cx="9" cy="30" r="3" />
-      <circle className="dshAcRelayNode dshAcRelayNodeEnd" cx="40" cy="18" r="3" />
-      <circle className="dshAcRelayPulse" cx="28" cy="12" r="2.5" />
-    </svg>
+    <span className="dshAcModuleGlyphBars">
+      <span />
+      <span />
+      <span />
+    </span>
   );
 }
 
@@ -198,25 +196,20 @@ function ChevronMark() {
   );
 }
 
-function RelayJourney(props: { t: (key: SettingsCardKey) => string }) {
-  return (
-    <span className="dshAcJourney">
-      <span className="dshAcJourneyStep dshAcJourneyInterrupted">
-        <span className="dshAcJourneyDot" aria-hidden="true" />
-        {props.t('flow.interrupted')}
-      </span>
-      <span className="dshAcJourneyLine" aria-hidden="true" />
-      <span className="dshAcJourneyStep dshAcJourneyGrace">
-        <span className="dshAcJourneyDot" aria-hidden="true" />
-        {props.t('flow.grace')}
-      </span>
-      <span className="dshAcJourneyLine" aria-hidden="true" />
-      <span className="dshAcJourneyStep dshAcJourneyContinue">
-        <span className="dshAcJourneyDot" aria-hidden="true" />
-        {props.t('flow.continue')}
-      </span>
-    </span>
-  );
+function policyLabel(t: (key: SettingsCardKey) => string, value: string): string {
+  switch (value) {
+    case 'safe': return t('preset.safe');
+    case 'balanced': return t('preset.balanced');
+    case 'long-task': return t('preset.longTask');
+    case 'manual': return t('preset.manual');
+    default: return t('chrome.inherit');
+  }
+}
+
+function booleanLabel(t: (key: SettingsCardKey) => string, value: string): string {
+  if (value === 'true') return t('chrome.on');
+  if (value === 'false') return t('chrome.off');
+  return t('chrome.inherit');
 }
 
 /** Card chrome: a disclosure header naming the plugin and what its settings govern, the controls, and the save that writes them. */
@@ -227,6 +220,7 @@ function SettingsCard(props: {
   state: CardShell;
   onSave: () => void;
   onDiscard: () => void;
+  headerMeta: ReactNode;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -237,6 +231,13 @@ function SettingsCard(props: {
   return (
     <li className={open ? 'dshAcCard dshAcCardOpen' : 'dshAcCard'}>
       <div className="dshAcHeaderFrame">
+        <div className="dshAcModuleBar">
+          <span className="dshAcModuleCode">{props.t('chrome.module')}</span>
+          <span className={state.writable ? 'dshAcStatus dshAcStatusReady' : 'dshAcStatus'}>
+            <span className="dshAcStatusDot" aria-hidden="true" />
+            {state.writable ? props.t('chrome.ready') : props.t('chrome.locked')}
+          </span>
+        </div>
         <button
           type="button"
           className="dshAcHeader"
@@ -245,12 +246,12 @@ function SettingsCard(props: {
           title={props.t(props.descriptionKey)}
           onClick={() => setOpen(!open)}
         >
-          <span className="dshAcRelayMark"><RelayMark /></span>
+          <span className="dshAcModuleGlyph"><ModuleGlyph /></span>
           <span className="dshAcHeadText">
             <span className="dshAcName">{title}</span>
             <span className="dshAcDescription">{props.t(props.descriptionKey)}</span>
-            <RelayJourney t={props.t} />
           </span>
+          <span className="dshAcHeaderMeta">{props.headerMeta}</span>
           {state.dirty ? (
             <span className="dshAcPending" title={props.t('chrome.unsaved')}>
               {props.t('chrome.unsaved')}
@@ -423,12 +424,13 @@ function SettingsSection(props: {
   titleKey: SettingsCardKey;
   descriptionKey: SettingsCardKey;
   tone: SettingsSectionTone;
+  index: string;
   children: ReactNode;
 }) {
   return (
     <section className={`dshAcFormSection dshAcFormSection-${props.tone}`}>
       <header className="dshAcSectionHead">
-        <span className="dshAcSectionSignal" aria-hidden="true" />
+        <span className="dshAcSectionIndex" aria-hidden="true">{props.index}</span>
         <span className="dshAcSectionCopy">
           <span className="dshAcSectionTitle">{props.t(props.titleKey)}</span>
           <span className="dshAcSectionDescription">{props.t(props.descriptionKey)}</span>
@@ -564,6 +566,18 @@ export function AutoContinueSettingsCard(props: AutoContinueSettingsCardProps) {
       state={state}
       onSave={props.save}
       onDiscard={props.discard}
+      headerMeta={(
+        <>
+          <span className="dshAcReadout">
+            <span className="dshAcReadoutLabel">{t('chrome.policy')}</span>
+            <strong>{policyLabel(t, state.recoveryPreset.text)}</strong>
+          </span>
+          <span className="dshAcReadout">
+            <span className="dshAcReadoutLabel">{t('field.enabled')}</span>
+            <strong>{booleanLabel(t, state.enabled.text)}</strong>
+          </span>
+        </>
+      )}
     >
       <div className="dshAcFormCanvas">
         <SettingsSection
@@ -571,6 +585,7 @@ export function AutoContinueSettingsCard(props: AutoContinueSettingsCardProps) {
           titleKey="section.handoff.title"
           descriptionKey="section.handoff.description"
           tone="handoff"
+          index="01"
         >
           <ChoiceField
             wide
@@ -660,6 +675,7 @@ export function AutoContinueSettingsCard(props: AutoContinueSettingsCardProps) {
           titleKey="section.safety.title"
           descriptionKey="section.safety.description"
           tone="safety"
+          index="02"
         >
           <BooleanField
             wide
@@ -730,6 +746,7 @@ export function AutoContinueSettingsCard(props: AutoContinueSettingsCardProps) {
           titleKey="section.recovery.title"
           descriptionKey="section.recovery.description"
           tone="recovery"
+          index="03"
         >
           <BooleanField
             id="auto-continue-scan-on-boot"
@@ -826,6 +843,7 @@ export function AutoContinueSettingsCard(props: AutoContinueSettingsCardProps) {
           titleKey="section.loop.title"
           descriptionKey="section.loop.description"
           tone="loop"
+          index="04"
         >
           <BooleanField
             wide
@@ -905,6 +923,7 @@ export function AutoContinueSettingsCard(props: AutoContinueSettingsCardProps) {
           titleKey="section.live.title"
           descriptionKey="section.live.description"
           tone="live"
+          index="05"
         >
           <LivePanels t={t} />
         </SettingsSection>

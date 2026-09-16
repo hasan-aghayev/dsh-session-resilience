@@ -21,6 +21,16 @@ type ShutdownResult = {
 };
 /** Resolve the active Web port without making 3080 a second profile. */
 export declare function resolvePort(ctx: Context, fallback?: number): number;
+type LocalRequest = {
+    socket?: {
+        remoteAddress?: string | undefined;
+    };
+    headers: Record<string, string | string[] | undefined>;
+};
+/** Accept requests that reached the host directly from the local machine. */
+export declare function isLoopbackRequest(req: LocalRequest): boolean;
+/** Accept a local request only when its browser origin matches the host. */
+export declare function trustedLoopback(req: LocalRequest): boolean;
 /** Owns the public restart routes and the durable post-restart handoff. */
 export declare class RestartController {
     private readonly ctx;

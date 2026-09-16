@@ -132,10 +132,23 @@ export function resolvePort(ctx: Context, fallback = 3080): number {
   return fallback
 }
 
-function trustedLoopback(req: { socket?: { remoteAddress?: string | undefined }; headers: Record<string, string | string[] | undefined> }): boolean {
+type LocalRequest = {
+  socket?: { remoteAddress?: string | undefined }
+  headers: Record<string, string | string[] | undefined>
+}
+
+/** Accept requests that reached the host directly from the local machine. */
+export function isLoopbackRequest(req: LocalRequest): boolean {
   const address = req.socket?.remoteAddress
-  if (address !== '127.0.0.1' && address !== '::1' && address !== '::ffff:127.0.0.1') return false
-  if (req.headers.forwarded !== undefined || req.headers['x-forwarded-for'] !== undefined || req.headers['x-real-ip'] !== undefined) return false
+  return (address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1') &&
+    req.headers.forwarded === undefined &&
+    req.headers['x-forwarded-for'] === undefined &&
+    req.headers['x-real-ip'] === undefined
+}
+
+/** Accept a local request only when its browser origin matches the host. */
+export function trustedLoopback(req: LocalRequest): boolean {
+  if (!isLoopbackRequest(req)) return false
   const origin = req.headers.origin
   const host = req.headers.host
   if (typeof origin !== 'string' || typeof host !== 'string') return false
@@ -168,15 +181,33 @@ function restart(ctx: Context, port: number): RestartResult {
   const sessionIds = runningSessionIds(ctx)
   const out = logPath('out')
   const err = logPath('err')
-  bestEffortWrite(flagPath(), String(Date.now()))
-  bestEffortWrite(resumePath(), { sessionIds, restartAt: new Date().toISOString(), pid: process.pid })
   const marker = markerPath(port)
-  bestEffortWrite(marker, { from: INSTANCE_ID, oldPid: process.pid, port, requestedAt: new Date().toISOString() })
+  try {
+    writeFileSync(flagPath(), String(Date.now()), 'utf8')
+    writeFileSync(resumePath(), JSON.stringify({ sessionIds, restartAt: new Date().toISOString(), pid: process.pid }, null, 2), 'utf8')
+    writeFileSync(marker, JSON.stringify({ from: INSTANCE_ID, oldPid: process.pid, port, requestedAt: new Date().toISOString() }, null, 2), 'utf8')
+  } catch (error) {
+    clear(flagPath())
+    clear(resumePath())
+    clear(marker)
+    throw new Error(`cannot prepare restart handoff: ${error instanceof Error ? error.message : String(error)}`)
+  }
 
-  const helper = spawn(process.execPath, [
-    HELPER_FILE,
-    JSON.stringify({ oldPid: process.pid, port, markerPath: marker, logOut: out, logErr: err, relaunch: relaunchSpec(port) }),
-  ], { detached: true, stdio: 'ignore', windowsHide: true, env: process.env })
+  let helper: ReturnType<typeof spawn>
+  try {
+    helper = spawn(process.execPath, [
+      HELPER_FILE,
+      JSON.stringify({ oldPid: process.pid, port, markerPath: marker, logOut: out, logErr: err, relaunch: relaunchSpec(port) }),
+    ], { detached: true, stdio: 'ignore', windowsHide: true, env: process.env })
+  } catch (error) {
+    clear(flagPath())
+    clear(resumePath())
+    clear(marker)
+    throw new Error(`cannot start restart helper: ${error instanceof Error ? error.message : String(error)}`)
+  }
+  helper.once('error', (error) => {
+    console.error(`[${PLUGIN_NAME}] restart helper failed: ${error.message}`)
+  })
   helper.unref()
   scheduleExit(ctx)
   return { ok: true, action: 'restart', instanceId: INSTANCE_ID, oldPid: process.pid, port, ...helper.pid === undefined ? {} : { helperPid: helper.pid }, sessionIds, logOut: out, logErr: err }
@@ -206,11 +237,15 @@ export class RestartController {
   mountRoutes(): void {
     this.routeDisposers.push(this.ctx.webServer.register({
       kind: 'exact', path: '/dsh-restart/health',
-      handler: (_req, res) => json(res, 200, { ok: true, instanceId: INSTANCE_ID, ts: Date.now() }),
+      handler: (req, res) => {
+        if (!isLoopbackRequest(req)) { json(res, 403, { ok: false, error: 'local requests only' }); return }
+        json(res, 200, { ok: true, instanceId: INSTANCE_ID, ts: Date.now() })
+      },
     }))
     this.routeDisposers.push(this.ctx.webServer.register({
       kind: 'exact', path: '/dsh-restart/status',
-      handler: (_req, res) => {
+      handler: (req, res) => {
+        if (!isLoopbackRequest(req)) { json(res, 403, { ok: false, error: 'local requests only' }); return }
         const marker = readRecord()
         const launchUrl = currentLaunchUrl(resolvePort(this.ctx))
         json(res, 200, {

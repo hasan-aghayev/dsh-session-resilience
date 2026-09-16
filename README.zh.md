@@ -105,17 +105,15 @@ Web 侧边栏在状态指示灯旁保留两个紧凑控制：
 
 ## 开发和发布
 
-由于 DSH 从 GitHub 安装时不假设本地 TypeScript 工具链，仓库会提交预构建的 `lib` 文件。运行：
+由于 DSH 从 GitHub 安装时不假设本地 TypeScript 工具链，仓库会提交预构建的 `lib` 文件。运行完整的包检查：
 
 ```sh
-npm run verify
-npm test
-npm pack --dry-run
+npm run pack:check
 ```
 
-验证脚本会检查 standalone 包身份、bundle patch、发布所需文件和 JavaScript 语法。`npm test` 会检查客户端注册和分离式重启辅助进程的发布产物。GitHub workflow 会在每次 push 和 pull request 上重复这些检查。
+验证脚本会检查 standalone 包身份、bundle patch、发布所需文件和 JavaScript 语法。artifact 测试会检查客户端注册、分离式重启辅助进程，以及本地状态桥的安全保护。GitHub workflow 会在每次 push 和 pull request 上重复包检查。匹配 `v*` 的版本 tag 会运行发布 workflow，检查 tag 与 `package.json` 版本一致，生成包归档并将其附加到 GitHub Release。
 
-提交到 DSH Plugin Market 时，使用一个公开仓库，并保证仓库根目录包含本 `package.json`、`cordis.patch.yml`、README、许可证和预构建的 `lib` 文件。推送准确的 commit 后，打开 [dsh.pub/submit](https://dsh.pub/en/submit/)，提交 `https://github.com/hasan-aghayev/dsh-session-resilience`，再跟随生成的目录 pull request。为了可复现安装，请使用 `npx dshpub add hasan-aghayev/dsh-session-resilience --ref <commit>`。
+提交到 DSH Plugin Market 时，使用一个公开仓库，并保证仓库根目录包含本 `package.json`、`cordis.patch.yml`、README、许可证和预构建的 `lib` 文件。将自己的条目添加到 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 的 `data/plugins/hasan-aghayev__dsh-session-resilience.yml`，再跟随目录 pull request。为了可复现安装，请使用 `dsh plugin add https://github.com/hasan-aghayev/dsh-session-resilience` 并在 profile 中固定准确的 commit。每个版本 tag 也会生成 GitHub Release 归档。
 
 ## 许可证和说明
 

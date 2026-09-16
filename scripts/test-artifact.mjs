@@ -37,11 +37,21 @@ function snapshotStore(initial) {
 
 test('published manifest and host artifacts expose the standalone package', async () => {
   const manifest = await readJson(join(root, 'package.json'));
+  const host = await readFile(join(root, 'lib/index.js'), 'utf8');
   assert.equal(manifest.name, 'dsh-session-resilience');
+  assert.equal(manifest.version, '0.1.1');
   assert.equal(manifest.engines.dsh, '>=0.1.0-rc.7 <0.2.0');
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml');
   assert.equal((await readFile(join(root, 'cordis.patch.yml'), 'utf8')).includes('dsh-session-resilience'), true);
-  assert.equal((await readFile(join(root, 'lib/index.js'), 'utf8')).includes('restartResumeWindowMs: 300 * 1e3'), true);
+  assert.equal(host.includes('restartResumeWindowMs: 300 * 1e3'), true);
+  for (const marker of [
+    'function isLoopbackRequest',
+    'request body too large',
+    'cannot prepare restart handoff',
+    'bridgeRouteDisposers',
+  ]) {
+    assert.equal(host.includes(marker), true, `missing production marker: ${marker}`);
+  }
 });
 
 test('published client registers the settings card and sidebar controls', async () => {

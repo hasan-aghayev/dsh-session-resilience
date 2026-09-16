@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1 - 2026-09-16
+
+- Dispose the status bridge routes, SSE clients, and subscriptions during plugin lifecycle replacement.
+- Restrict the local status bridge and control actions to direct loopback requests; validate methods, actions, session ids, and request size.
+- Fail restart preparation when the durable handoff cannot be written instead of returning a false success result.
+- Add artifact assertions for the lifecycle and local-request safeguards.
+- Add a reproducible package check and tag-based GitHub Release workflow.
+
 ## 0.1.0
 
 - Initial standalone release candidate for DSH.

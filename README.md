@@ -105,17 +105,15 @@ The plugin adds no fixed system-prompt prefix. Its model-visible contribution is
 
 ## Development and release
 
-The repository commits prebuilt `lib` artifacts because DSH GitHub installation does not assume a local TypeScript toolchain. Run:
+The repository commits prebuilt `lib` artifacts because DSH GitHub installation does not assume a local TypeScript toolchain. Run the complete package check:
 
 ```sh
-npm run verify
-npm test
-npm pack --dry-run
+npm run pack:check
 ```
 
-The verification script checks the standalone package identity, bundle patch, required publication files, and JavaScript syntax. `npm test` runs artifact-level checks for client registration and the detached restart helper. The GitHub workflow repeats these checks for every push and pull request.
+The verification script checks the standalone package identity, bundle patch, required publication files, and JavaScript syntax. The artifact tests cover client registration, the detached restart helper, and the local status-bridge safeguards. The GitHub workflow repeats the package check for every push and pull request. Version tags matching `v*` run the release workflow, which checks that the tag matches `package.json`, creates the package archive, and attaches it to a GitHub Release.
 
-For the DSH Plugin Market submission, use a public repository whose root contains this `package.json`, `cordis.patch.yml`, README, license, and prebuilt `lib` files. Add one `data/plugins/hasan-aghayev__dsh-session-resilience.yml` entry to the [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) catalog and follow its validation pull request. After the catalog entry is merged, the market picks it up automatically. For reproducible installation, use `dsh plugin add https://github.com/hasan-aghayev/dsh-session-resilience` and pin the selected commit in the profile.
+For the DSH Plugin Market submission, use a public repository whose root contains this `package.json`, `cordis.patch.yml`, README, license, and prebuilt `lib` files. Add one `data/plugins/hasan-aghayev__dsh-session-resilience.yml` entry to the [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) catalog and follow its validation pull request. After the catalog entry is merged, the market picks it up automatically. For reproducible installation, use `dsh plugin add https://github.com/hasan-aghayev/dsh-session-resilience` and pin the selected commit in the profile. A GitHub Release archive is also produced for each version tag.
 
 ## License and attribution
 

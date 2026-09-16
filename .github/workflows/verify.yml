@@ -12,6 +12,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm run verify
-      - run: npm test
-      - run: npm pack --dry-run
+      - run: npm run pack:check

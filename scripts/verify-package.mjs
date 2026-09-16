@@ -41,6 +41,10 @@ for (const marker of [
   'recoveryPreset === "manual"',
   'restartResumeWindowMs: 300 * 1e3',
   'maxConsecutive: 2',
+  'function isLoopbackRequest',
+  'request body too large',
+  'cannot prepare restart handoff',
+  'bridgeRouteDisposers',
 ]) {
   if (!hostBundle.includes(marker)) throw new Error(`Built runtime is missing recovery policy marker: ${marker}`);
 }

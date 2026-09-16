@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-resilience",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Safe DSH restart, token-aware reconnect, and policy-based session recovery",
   "type": "module",
   "main": "lib/index.js",
@@ -43,9 +43,10 @@
     }
   },
   "scripts": {
+    "check": "npm run verify && npm test",
     "verify": "node scripts/verify-package.mjs",
     "test": "node --test scripts/test-artifact.mjs",
-    "pack:check": "npm run verify && npm test && npm pack --dry-run"
+    "pack:check": "npm run check && npm pack --dry-run"
   },
   "keywords": [
     "dsh",

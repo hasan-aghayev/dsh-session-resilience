@@ -1,0 +1,33 @@
+name: Release package
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify package and tag
+        shell: bash
+        run: |
+          npm run pack:check
+          test "${GITHUB_REF_NAME#v}" = "$(node -p "require('./package.json').version")"
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          npm pack
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "dsh-session-resilience $GITHUB_REF_NAME" \
+            --generate-notes \
+            dsh-session-resilience-*.tgz

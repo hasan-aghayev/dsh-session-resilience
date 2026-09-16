@@ -13,8 +13,9 @@ import type { Context } from '@deepseek-ai/cordis';
 import z from '@deepseek-ai/schemastery';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 import type { SettingsNamespace } from '@deepseek-ai/dsh-settings';
+import { SessionId } from '@deepseek-ai/dsh-session';
 import { AutoContinueRunner } from './host/engine.ts';
-import { RestartController } from './restart.ts';
+import { isLoopbackRequest, RestartController, trustedLoopback } from './restart.ts';
 import { resolveConfig, type AutoContinueSettings } from './shared/core.ts';
 // The type-only settings import also pulls in the `ctx.settings` Context augmentation.
 // Type-only: pulls the `ctx.webServer` Context augmentation.
@@ -26,6 +27,18 @@ import type {} from '@deepseek-ai/dsh-tools';
 /** Settings namespace of the auto-continue plugin (lowercase kebab-case). */
 export const AUTO_CONTINUE_NS = 'auto-continue';
 const SETTINGS_NS = AUTO_CONTINUE_NS as SettingsNamespace;
+
+function jsonResponse(
+  res: { writeHead: (status: number, headers?: Record<string, string>) => void; end: (body?: string) => void },
+  status: number,
+  value: unknown,
+): void {
+  res.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+  });
+  res.end(JSON.stringify(value));
+}
 
 /** Wire schema; blank localized text fields tell resolveConfig() to select the active locale's defaults. */
 export const AutoContinueSchema = z.object({
@@ -155,9 +168,12 @@ export function apply(ctx: Context): void {
   let runnerRef: AutoContinueRunner | undefined;
   let restartRef: RestartController | undefined;
   let toolDisposers: Array<() => void> = [];
+  let bridgeDispose: (() => void) | undefined;
 
   // 单实例引擎: host 进程内监听会话事件, 所有标签页共享同一个引擎。
   ctx.inject(['settings', 'agents', 'webServer', 'tools'], (engineCtx) => {
+    bridgeDispose?.();
+    bridgeDispose = undefined;
     // 回调重入时先清理旧引擎, 避免定时器与监听器叠加。
     if (runnerRef !== undefined) runnerRef.dispose();
     restartRef?.dispose();
@@ -191,13 +207,13 @@ export function apply(ctx: Context): void {
     ];
 
     // 状态桥: browser 侧订阅通知与运行时状态(SSE)。
-    const sseClients = new Set<(data: string) => void>();
+    const sseClients = new Set<{ send: (data: string) => void; close: () => void }>();
     const pushToAll = (data: string): void => {
-      for (const send of sseClients) {
+      for (const client of sseClients) {
         try {
-          send(data);
+          client.send(data);
         } catch {
-          sseClients.delete(send);
+          sseClients.delete(client);
         }
       }
     };
@@ -208,66 +224,94 @@ export function apply(ctx: Context): void {
         paused: runner.activePauses(),
       });
 
-    runner.subscribeNotices(() => {
+    const disposeNoticeSubscription = runner.subscribeNotices(() => {
       for (const notice of runner.drainNotices()) {
         pushToAll(`data: ${JSON.stringify({ type: 'notice', notice })}\n\n`);
       }
     });
-    runner.subscribeState(() => {
+    const disposeStateSubscription = runner.subscribeState(() => {
       pushToAll(`data: ${statePayload()}\n\n`);
     });
 
-    engineCtx.webServer.register({
+    const bridgeRouteDisposers: Array<() => void> = [];
+    bridgeRouteDisposers.push(engineCtx.webServer.register({
       kind: 'exact',
       path: '/api/auto-continue-bridge',
       handler: (req, res) => {
+        if (req.method !== 'GET') { jsonResponse(res, 405, { ok: false, error: 'method not allowed' }); return; }
+        if (!isLoopbackRequest(req)) { jsonResponse(res, 403, { ok: false, error: 'local requests only' }); return; }
         res.writeHead(200, {
           'content-type': 'text/event-stream',
           'cache-control': 'no-cache',
           connection: 'keep-alive',
         });
         res.write(`data: ${statePayload()}\n\n`);
-        const send = (data: string): void => {
-          res.write(data);
+        const client = {
+          send: (data: string): void => { res.write(data); },
+          close: (): void => { res.end(); },
         };
-        sseClients.add(send);
-        req.on('close', () => sseClients.delete(send));
+        sseClients.add(client);
+        req.on('close', () => sseClients.delete(client));
       },
-    });
+    }));
 
     // 通知按钮动作: browser 点击「立即续跑 / 暂停该会话」时 POST 到这里。
-    engineCtx.webServer.register({
+    bridgeRouteDisposers.push(engineCtx.webServer.register({
       kind: 'exact',
       path: '/api/auto-continue-action',
       handler: (req, res) => {
+        if (req.method !== 'POST') { jsonResponse(res, 405, { ok: false, error: 'method not allowed' }); return; }
+        if (!trustedLoopback(req)) { jsonResponse(res, 403, { ok: false, error: 'untrusted origin' }); return; }
         let body = '';
+        let rejected = false;
         req.on('data', (chunk: Buffer) => {
+          if (rejected) return;
           body += chunk.toString('utf8');
-          if (body.length > 4096) req.destroy();
+          if (Buffer.byteLength(body, 'utf8') > 4096) {
+            rejected = true;
+            jsonResponse(res, 413, { ok: false, error: 'request body too large' });
+            req.destroy();
+          }
         });
         req.on('end', () => {
+          if (rejected) return;
           try {
-            const parsed = JSON.parse(body) as { sessionId?: string; action?: string };
-            if (typeof parsed.action === 'string') {
-              runner.handleNoticeAction((parsed.sessionId as never) ?? undefined, parsed.action);
-              res.writeHead(200, { 'content-type': 'application/json' });
-              res.end(JSON.stringify({ ok: true }));
+            const parsed = JSON.parse(body) as { sessionId?: unknown; action?: unknown };
+            const action = parsed.action;
+            if (action !== 'resume' && action !== 'pause1h' && action !== 'unpause' && action !== 'reset-stats') {
+              jsonResponse(res, 400, { ok: false, error: 'unknown action' });
               return;
             }
-            res.writeHead(400, { 'content-type': 'application/json' });
-            res.end(JSON.stringify({ ok: false }));
+            const sessionId = typeof parsed.sessionId === 'string' && parsed.sessionId !== ''
+              ? SessionId(parsed.sessionId)
+              : undefined;
+            if (action !== 'reset-stats' && sessionId === undefined) {
+              jsonResponse(res, 400, { ok: false, error: 'sessionId is required' });
+              return;
+            }
+            runner.handleNoticeAction(sessionId, action);
+            jsonResponse(res, 200, { ok: true });
           } catch {
-            res.writeHead(400, { 'content-type': 'application/json' });
-            res.end(JSON.stringify({ ok: false }));
+            jsonResponse(res, 400, { ok: false, error: 'invalid JSON' });
           }
         });
       },
-    });
+    }));
+
+    bridgeDispose = () => {
+      for (const client of sseClients) client.close();
+      sseClients.clear();
+      disposeNoticeSubscription();
+      disposeStateSubscription();
+      for (const dispose of bridgeRouteDisposers.splice(0)) dispose();
+    };
   });
 
   // 顶层生命周期绑定: fiber 卸载时清理引擎(定时器/监听器)。
   // 挂在 apply 的 ctx 上保证 Cordis 一定会调用, 防止 inactive context 崩溃。
   ctx.effect(() => () => {
+    bridgeDispose?.();
+    bridgeDispose = undefined;
     const runner = runnerRef;
     runnerRef = undefined;
     if (runner !== undefined) runner.dispose();

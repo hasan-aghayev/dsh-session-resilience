@@ -22,7 +22,11 @@ for (const file of requiredFiles) {
 
 if (manifest.name !== 'dsh-session-resilience') throw new Error('Package identity is not standalone.');
 if (!manifest.dsh?.bundle?.patch || !manifest.dsh?.client?.platform) throw new Error('Incomplete DSH manifest.');
-if (manifest.engines?.dsh !== '>=0.1.0-rc.7 <0.2.0') throw new Error('DSH engine range is missing or too broad.');
+if (manifest.engines?.dsh !== '>=0.1.0-rc.7 <0.2.0 || >=0.1.7-alpha.1 <0.1.8') throw new Error('DSH engine range is missing or too broad.');
+if (!manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-plugin-manager')
+  || manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-settings-plugins')) {
+  throw new Error('Client manifest does not use the current Plugins page provider.');
+}
 if (manifest.scripts?.test !== 'node --test scripts/test-artifact.mjs') throw new Error('Artifact test script is missing.');
 const patch = readFileSync(resolve(root, 'cordis.patch.yml'), 'utf8');
 if (!patch.includes('id: dsh-session-resilience') || !patch.includes("name: 'dsh-session-resilience'")) {
@@ -33,6 +37,10 @@ const clientBundle = readFileSync(resolve(root, 'lib/client.js'), 'utf8');
 if (!clientBundle.includes('id: "dsh-session-resilience"') || clientBundle.includes('@deepseek-ai/dsh-restart-continue')) {
   throw new Error('Client bundle still carries the upstream package identity.');
 }
+if (!clientBundle.includes('plugins.item') || clientBundle.includes('settings.plugin.item') || clientBundle.includes('settingsScope')) {
+  throw new Error('Client bundle does not use the current Plugins page and configuration forms.');
+}
+if (!clientBundle.includes('configForms')) throw new Error('Client bundle does not load the configuration form service.');
 
 const hostBundle = readFileSync(resolve(root, 'lib/index.js'), 'utf8');
 for (const marker of [

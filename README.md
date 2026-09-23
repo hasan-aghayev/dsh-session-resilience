@@ -33,6 +33,13 @@ The bundle patch inserts the Host entry and the web-client entry. The package in
 
 This repository is intended to be the source of truth for a public release. Pin an exact commit when adding it to a profile. Do not use a moving branch in a production profile.
 
+Install or remove the bundle with the profile-aware DSH command:
+
+```sh
+dsh plugin --profile <profile> add https://github.com/hasan-aghayev/dsh-session-resilience
+dsh plugin --profile <profile> remove dsh-session-resilience
+```
+
 The repository metadata is already configured for this public GitHub repository. Submit one entry for its public URL to the [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) catalog after the local checks pass. The catalog validates the bundle manifest and generates the market data used by [dsh-market](https://github.com/dsh-market/dsh-market); npm publication is not required for Git-based installation.
 
 ## Controls
@@ -96,7 +103,8 @@ The plugin adds no fixed system-prompt prefix. Its model-visible contribution is
 ## Compatibility and limitations
 
 - Designed for a DSH web profile with the published `@deepseek-ai/cordis` and `@deepseek-ai/dsh-tools` peer packages.
-- Tested against DeepSeek Harness `0.1.5-rc.2` and Node `22.19+`; package metadata accepts DSH `>=0.1.0-rc.7 <0.2.0`.
+- Version 0.1.2 was checked against DeepSeek Harness `0.1.7-alpha.2` and Node `24.15.0`. Its settings page uses the current Plugins page and configuration form services.
+- Package metadata supports DSH `>=0.1.0-rc.7 <0.2.0` and the `0.1.7-alpha.1` through `0.1.7` release line.
 - The replacement process uses the profile's normal DSH web launch path and configured port; the plugin does not choose a GPU, model, or port.
 - Restart recovery requires a root browser session that reconnects within the selected handoff window.
 - A process that is killed before it writes the restart marker cannot provide a session handoff.

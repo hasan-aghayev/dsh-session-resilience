@@ -1,7 +1,7 @@
 /**
  * Combined Host half for restart controls and automatic continuation.
  *
- * - Registers the `auto-continue` settings namespace (the browser half's
+ * - Configures the `dsh-session-resilience` settings entry (the browser half's
  *   settings card edits it; the host engine reads it).
  * - Runs the single-instance auto-continue engine: listens to the session
  *   event firehose, sends via `agent.followup`, cancels via `agent.cancel`.
@@ -25,7 +25,7 @@ import type {} from '@deepseek-ai/dsh-session';
 import type {} from '@deepseek-ai/dsh-tools';
 
 /** Settings namespace of the auto-continue plugin (lowercase kebab-case). */
-export const AUTO_CONTINUE_NS = 'auto-continue';
+export const AUTO_CONTINUE_NS = 'dsh-session-resilience';
 const SETTINGS_NS = AUTO_CONTINUE_NS as SettingsNamespace;
 
 function jsonResponse(
@@ -110,6 +110,9 @@ export const AutoContinueSchema = z.object({
     .default(''),
 });
 
+/** Config schema consumed by the active profile entry and SettingsForms. */
+export const Config = AutoContinueSchema;
+
 const RESTART_OUTPUT = {
   schema: {
     type: 'object' as const,
@@ -151,15 +154,13 @@ const SHUTDOWN_OUTPUT = {
 };
 
 /**
- * Plugin body: register the settings namespace, start the single-instance
+ * Plugin body: configure settings for this profile entry, start the single-instance
  * engine, and serve the status bridge.
  * @param ctx - host plugin context.
  */
 export function apply(ctx: Context): void {
   ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.register(SETTINGS_NS, AutoContinueSchema, {
-      applies: 'live',
-    });
+    settingsCtx.effect(() => settingsCtx.settings.configure({ auto: false }, ctx.fiber));
   });
 
   // 引擎引用: inject 回调可能重入(依赖组合变化), 顶层 effect 在 fiber 卸载时必跑。
@@ -178,13 +179,11 @@ export function apply(ctx: Context): void {
     if (runnerRef !== undefined) runnerRef.dispose();
     restartRef?.dispose();
     for (const dispose of toolDisposers.splice(0)) dispose();
-    const runner = new AutoContinueRunner(engineCtx, () =>
-      resolveConfig(engineCtx.settings.get(SETTINGS_NS) as AutoContinueSettings | undefined),
-    );
+    const readSettings = (): AutoContinueSettings | undefined =>
+      engineCtx.settings.describe().find(entry => entry.ns === SETTINGS_NS)?.value as AutoContinueSettings | undefined;
+    const runner = new AutoContinueRunner(engineCtx, () => resolveConfig(readSettings()));
     runnerRef = runner;
-    const restartController = new RestartController(engineCtx, () =>
-      resolveConfig(engineCtx.settings.get(SETTINGS_NS) as AutoContinueSettings | undefined),
-    );
+    const restartController = new RestartController(engineCtx, () => resolveConfig(readSettings()));
     restartController.mountRoutes();
     restartRef = restartController;
     toolDisposers = [

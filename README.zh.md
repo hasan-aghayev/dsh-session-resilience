@@ -33,6 +33,13 @@ Bundle patch 会插入 Host 和 Web 客户端条目。包中包含预构建的 `
 
 本仓库用于作为公开版本的事实来源。加入 profile 时请固定到准确 commit；生产 profile 不要使用会移动的分支。
 
+使用带 profile 参数的 DSH 命令安装或移除该 bundle：
+
+```sh
+dsh plugin --profile <profile> add https://github.com/hasan-aghayev/dsh-session-resilience
+dsh plugin --profile <profile> remove dsh-session-resilience
+```
+
 仓库 metadata 已经配置为这个公开 GitHub 仓库。完成本地检查后，可以通过 [dsh.pub/submit](https://dsh.pub/en/submit/) 提交公开 URL。目录服务会校验指定 commit 并生成可审计的目录 pull request；基于 Git 安装不要求先发布到 npm。
 
 ## 控制按钮
@@ -96,7 +103,8 @@ Web 侧边栏在状态指示灯旁保留两个紧凑控制：
 ## 兼容性和限制
 
 - 面向带有已发布 `@deepseek-ai/cordis` 和 `@deepseek-ai/dsh-tools` peer 包的 DSH Web profile。
-- 已用 DeepSeek Harness `0.1.5-rc.2` 和 Node `22.19+` 测试；包 metadata 接受 DSH `>=0.1.0-rc.7 <0.2.0`。
+- 0.1.2 版本已在 DeepSeek Harness `0.1.7-alpha.2` 和 Node `24.15.0` 上检查。设置页面使用当前的 Plugins 页面和配置表单服务。
+- 包 metadata 支持 DSH `>=0.1.0-rc.7 <0.2.0`，以及 `0.1.7-alpha.1` 到 `0.1.7` 这一发布线。
 - 替代进程使用 profile 正常的 DSH Web 启动路径和配置端口；插件不会选择 GPU、模型或端口。
 - 重启恢复需要根浏览器会话在接力窗口内重新连接。
 - 如果进程在写入重启标记之前就被强制结束，插件无法提供会话接力。

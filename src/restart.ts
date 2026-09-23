@@ -230,7 +230,10 @@ export class RestartController {
   private disposed = false
 
   constructor(private readonly ctx: Context, private readonly getConfig: () => AutoContinueConfig) {
-    this.resumeDisposer = ctx.on('agent/created', ({ agent }) => this.deliver(agent))
+    this.resumeDisposer = ctx.on('agent/created', ({ agent }) => {
+      this.deliver(agent)
+      return undefined
+    })
     this.startResume()
   }
 
@@ -321,7 +324,7 @@ export class RestartController {
     try {
       agent.followup(createUserMessage({
         content: [{ type: 'text', text: this.getConfig().continueText }],
-        source: { kind: 'plugin', plugin: PLUGIN_NAME, form: 'instructions' },
+        source: { kind: PLUGIN_NAME, form: 'instructions' },
       }))
       this.pending.delete(sessionId)
       if (this.pending.size === 0) this.finishResume()

@@ -809,7 +809,7 @@ export class AutoContinueRunner {
     try {
       const message = createUserMessage({
         content: [{ type: 'text', text }],
-        source: { kind: 'plugin', plugin: PLUGIN_NAME, form: 'instructions' },
+        source: { kind: PLUGIN_NAME, form: 'instructions' },
       });
       // `followup` may publish the matching session event synchronously.
       trackPendingEcho(state, message.id);

@@ -56,12 +56,12 @@ export declare class AutoContinueSettingsCardController {
      */
     inject(): AutoContinueSettingsCardFace;
 }
-/** Props the renderer binds for the auto-continue plugin-configuration card. */
-export type AutoContinueSettingsCardProps = PropsRuntime<'settings.plugin.item'> & PropsLocale<'auto-continue'> & InjectFace<AutoContinueSettingsCardFace>;
+/** Props the renderer binds for the auto-continue Plugins page card. */
+export type AutoContinueSettingsCardProps = PropsRuntime<'plugins.item'> & PropsLocale<'auto-continue'> & InjectFace<AutoContinueSettingsCardFace>;
 /**
  * Render the auto-continue card.
  * @param props - locale copy, the card snapshot, and its form actions.
  * @returns the card.
  */
-export declare function AutoContinueSettingsCard(props: AutoContinueSettingsCardProps): import("react").JSX.Element;
+export declare function AutoContinueSettingsCard(props: AutoContinueSettingsCardProps): string | import("react").JSX.Element;
 //# sourceMappingURL=settings-card.d.ts.map

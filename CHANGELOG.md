@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2 - 2026-09-23
+
+- Migrate the settings page and forms to the DSH 0.1.7 Plugins page and configuration-form services.
+- Read live configuration from the profile entry and use the entry id as its settings namespace.
+- Use the typed message-source contract for recovery and restart notices.
+- Rebuild the host and client artifacts and check the package against DeepSeek Harness 0.1.7-alpha.2.
+
 ## 0.1.1 - 2026-09-16
 
 - Dispose the status bridge routes, SSE clients, and subscriptions during plugin lifecycle replacement.

@@ -1,7 +1,6 @@
 /**
- * `auto-continue` namespace dictionaries: copy for the plugin settings card
- * registered into the `settings.plugin.item` seat of the plugin-configuration
- * section. Includes the card-chrome keys the card component reads.
+ * `auto-continue` locale dictionaries for the DSH Session Resilience page.
+ * Includes the card-chrome keys used by the page component.
  */
 import { LOCALIZED_TEXT_DEFAULTS } from '../shared/core.ts';
 

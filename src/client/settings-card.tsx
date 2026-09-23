@@ -1,6 +1,6 @@
 /**
  * The auto-continue settings card: edits the `auto-continue` namespace fields
- * from the plugin-configuration section (the `settings.plugin.item` seat).
+ * from the Plugins page (`plugins.item` slot).
  *
  * Self-contained card chrome (disclosure header, staged fields, save/discard
  * footer) following the plugin-card store pattern of the DSH plugin
@@ -9,6 +9,7 @@
  */
 import { useEffect, useState, type ReactNode } from 'react';
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
+import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client';
 import { type AutoContinueSettings } from './engine.ts';
 import { createSnapshotStore, type SettingsScope, type SnapshotStore } from './dsh-store-compat.ts';
 import {
@@ -163,9 +164,9 @@ export class AutoContinueSettingsCardController {
   }
 }
 
-/** Props the renderer binds for the auto-continue plugin-configuration card. */
+/** Props the renderer binds for the auto-continue Plugins page card. */
 export type AutoContinueSettingsCardProps =
-  PropsRuntime<'settings.plugin.item'> & PropsLocale<'auto-continue'> & InjectFace<AutoContinueSettingsCardFace>;
+  PropsRuntime<'plugins.item'> & PropsLocale<'auto-continue'> & InjectFace<AutoContinueSettingsCardFace>;
 
 const PRESET_FIELDS = [
   'restartResumeWindowMs',
@@ -223,13 +224,13 @@ function SettingsCard(props: {
   headerMeta: ReactNode;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const { state } = props;
   if (!state.available) return null;
   const title = props.t(props.titleKey);
   const blocked = !state.dirty || state.invalid || state.saving;
   return (
-    <li className={open ? 'dshAcCard dshAcCardOpen' : 'dshAcCard'}>
+    <div className={open ? 'dshAcCard dshAcCardOpen' : 'dshAcCard'}>
       <div className="dshAcHeaderFrame">
         <div className="dshAcModuleBar">
           <span className="dshAcModuleCode">{props.t('chrome.module')}</span>
@@ -286,7 +287,7 @@ function SettingsCard(props: {
           </div>
         </div>
       ) : null}
-    </li>
+    </div>
   );
 }
 
@@ -556,6 +557,7 @@ function LivePanels(props: { t: (key: SettingsCardKey) => string }) {
 export function AutoContinueSettingsCard(props: AutoContinueSettingsCardProps) {
   const { t } = props;
   const state = props.useAutoContinueSettingsCard((snapshot) => snapshot);
+  if (props.view === 'summary') return t('card.description');
   const disabled = !state.writable;
   const shared = { t, disabled };
   return (

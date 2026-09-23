@@ -3,7 +3,7 @@
  *
  * Since 0.8.0 the auto-continue ENGINE runs inside the host process (single
  * instance — see src/host/engine.ts), so this half only:
- * - registers the combined `auto-continue` settings card (`settings.plugin.item`),
+ * - registers the combined `auto-continue` settings page (`plugins.item`),
  * - keeps restart and shutdown controls in the sidebar footer,
  * - subscribes to the host status bridge (SSE) and shows browser
  *   notifications with action buttons (Resume now / Pause 1h) via the bridge

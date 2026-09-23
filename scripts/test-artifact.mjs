@@ -39,8 +39,8 @@ test('published manifest and host artifacts expose the standalone package', asyn
   const manifest = await readJson(join(root, 'package.json'));
   const host = await readFile(join(root, 'lib/index.js'), 'utf8');
   assert.equal(manifest.name, 'dsh-session-resilience');
-  assert.equal(manifest.version, '0.1.1');
-  assert.equal(manifest.engines.dsh, '>=0.1.0-rc.7 <0.2.0');
+  assert.equal(manifest.version, '0.1.2');
+  assert.equal(manifest.engines.dsh, '>=0.1.0-rc.7 <0.2.0 || >=0.1.7-alpha.1 <0.1.8');
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml');
   assert.equal((await readFile(join(root, 'cordis.patch.yml'), 'utf8')).includes('dsh-session-resilience'), true);
   assert.equal(host.includes('restartResumeWindowMs: 300 * 1e3'), true);
@@ -93,12 +93,23 @@ test('published client registers the settings card and sidebar controls', async 
     throw new Error(`Unexpected client dependency: ${id}`);
   });
   plugin.apply({
-    effect(effect) { effects.push(effect); return () => {}; },
+    effect(effect, label) {
+      effects.push(effect);
+      if (label === 'auto-continue: settings page') return effect();
+      return () => {};
+    },
     locale: {
       register: () => () => {},
       getLocale: () => ({ active: 'en' }),
+      bind: () => (key) => key,
     },
-    settingsScope: { bind: () => scope },
+    configForms: {
+      get(namespace) {
+        assert.equal(namespace, 'dsh-session-resilience');
+        return scope;
+      },
+      whileServed(_namespaces, register) { return register(); },
+    },
     on: () => () => {},
     slots: {
       inject: (_name, register) => { register(); return () => {}; },
@@ -109,10 +120,10 @@ test('published client registers the settings card and sidebar controls', async 
     },
   });
 
-  assert.equal(effects.length, 3);
-  const settings = registrations.find(({ options }) => options.name === 'settings.plugin.item');
+  assert.equal(effects.length, 4);
+  const settings = registrations.find(({ options }) => options.name === 'plugins.item');
   assert.ok(settings);
-  assert.equal(settings.options.key, 'auto-continue');
+  assert.equal(settings.options.id, 'restart-continue');
   assert.equal(settings.options.locale, 'auto-continue');
   const actions = registrations.find(({ options }) => options.name === 'sidebar.footer.action');
   assert.ok(actions);

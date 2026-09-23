@@ -31,8 +31,8 @@ export interface SettingsScopeSnapshot<T> {
 export interface SettingsScope<T> {
   getSnapshot(): SettingsScopeSnapshot<T>;
   subscribe(listener: () => void): () => void;
-  set(field: string, value: unknown): Promise<void>;
-  unset(field: string): Promise<void>;
+  set(field: string, value: unknown): Promise<boolean>;
+  unset(field: string): Promise<boolean>;
 }
 
 interface SnapshotStoreModule {

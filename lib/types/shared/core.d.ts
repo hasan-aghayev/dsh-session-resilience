@@ -5,6 +5,14 @@
  * 以及回显识别。引擎迁入 host 后(0.8.0), 浏览器半侧只 re-export 本模块。
  */
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types';
+import type { ContextFormed } from '@deepseek-ai/dsh-llm';
+declare module '@deepseek-ai/dsh-llm' {
+    interface MessageSourceMap {
+        'dsh-session-resilience': {
+            kind: 'dsh-session-resilience';
+        } & ContextFormed;
+    }
+}
 /** Supported UI/config locales. Any unknown browser locale falls back to Chinese. */
 export type AutoContinueLocale = 'en' | 'zh';
 /** Recovery policy selected by the user in the settings card. */
@@ -190,12 +198,12 @@ interface ToolResultData {
             kind?: string;
             callId?: unknown;
         };
-        content?: Array<{
+        content?: readonly {
             type?: string;
             toolCallId?: unknown;
             content?: unknown;
             isError?: boolean;
-        }>;
+        }[];
     };
 }
 /**

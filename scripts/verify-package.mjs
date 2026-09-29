@@ -22,7 +22,18 @@ for (const file of requiredFiles) {
 
 if (manifest.name !== 'dsh-session-resilience') throw new Error('Package identity is not standalone.');
 if (!manifest.dsh?.bundle?.patch || !manifest.dsh?.client?.platform) throw new Error('Incomplete DSH manifest.');
-if (manifest.engines?.dsh !== '>=0.1.0-rc.7 <0.2.0 || >=0.1.7-alpha.1 <0.1.8') throw new Error('DSH engine range is missing or too broad.');
+const DSH_COMPATIBILITY = '>=0.1.0-rc.7 <0.2.0 || >=0.1.7-alpha.1 <0.1.8 || 0.2.0-rc.2 || ^0.2.0';
+if (manifest.engines?.dsh !== DSH_COMPATIBILITY) throw new Error('DSH engine range is missing or too broad.');
+for (const name of [
+  '@deepseek-ai/dsh-tools',
+  '@deepseek-ai/dsh-llm',
+  '@deepseek-ai/dsh-session',
+  '@deepseek-ai/dsh-settings',
+]) {
+  if (!manifest.peerDependencies?.[name]?.includes('0.2.0-rc.2')) {
+    throw new Error(`Peer dependency ${name} does not support DSH 0.2.0-rc.2.`);
+  }
+}
 if (!manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-plugin-manager')
   || manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-settings-plugins')) {
   throw new Error('Client manifest does not use the current Plugins page provider.');

@@ -1,5 +1,5 @@
 ---
-description: "为 DSH Web 配置提供安全重启、带 token 的重连和策略化会话恢复。"
+description: "为 DSH 0.2+ Web 配置提供安全重启、带 token 的重连和策略化会话恢复。"
 kind: "package-bundle"
 ---
 
@@ -102,9 +102,9 @@ Web 侧边栏在状态指示灯旁保留两个紧凑控制：
 
 ## 兼容性和限制
 
-- 面向带有已发布 `@deepseek-ai/cordis` 和 `@deepseek-ai/dsh-tools` peer 包的 DSH Web profile。
-- 0.1.2 版本已在 DeepSeek Harness `0.1.7-alpha.2` 和 Node `24.15.0` 上检查。设置页面使用当前的 Plugins 页面和配置表单服务。
-- 包 metadata 支持 DSH `>=0.1.0-rc.7 <0.2.0`，以及 `0.1.7-alpha.1` 到 `0.1.7` 这一发布线。
+- 面向带有已发布 Cordis、tools、LLM、session 和 settings 包的 DSH Web profile。
+- 0.1.3 版本已在 DeepSeek Harness `0.2.0-rc.2` 和 Node `24.18.0` 的全新 Web profile 中做过冒烟检查；插件成功加载，本地健康检查路由返回成功。其使用的接口也已对照该版本源码检查。
+- 包 metadata 仍支持 DSH `>=0.1.0-rc.7 <0.2.0`，以及 `0.1.7-alpha.1` 到 `0.1.7` 这一发布线。
 - 替代进程使用 profile 正常的 DSH Web 启动路径和配置端口；插件不会选择 GPU、模型或端口。
 - 重启恢复需要根浏览器会话在接力窗口内重新连接。
 - 如果进程在写入重启标记之前就被强制结束，插件无法提供会话接力。

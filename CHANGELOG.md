@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3 - 2026-09-29
+
+- Add DSH `0.2.0-rc.2` to the supported host and peer-package ranges while retaining the existing DSH 0.1.x ranges.
+- Check the plugin's used host APIs against the DSH `0.2.0-rc.2` source and smoke-test activation from the packed archive.
+- Verify the manifest compatibility in the package checks.
+
 ## 0.1.2 - 2026-09-23
 
 - Migrate the settings page and forms to the DSH 0.1.7 Plugins page and configuration-form services.

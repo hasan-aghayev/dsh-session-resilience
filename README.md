@@ -1,5 +1,5 @@
 ---
-description: "A DSH profile bundle for safe restart, token-aware reconnect, and policy-based session recovery."
+description: "A DSH profile bundle for safe restarts, token-aware reconnect, and policy-based session recovery on DSH 0.2+."
 kind: "package-bundle"
 ---
 
@@ -102,9 +102,9 @@ The plugin adds no fixed system-prompt prefix. Its model-visible contribution is
 
 ## Compatibility and limitations
 
-- Designed for a DSH web profile with the published `@deepseek-ai/cordis` and `@deepseek-ai/dsh-tools` peer packages.
-- Version 0.1.2 was checked against DeepSeek Harness `0.1.7-alpha.2` and Node `24.15.0`. Its settings page uses the current Plugins page and configuration form services.
-- Package metadata supports DSH `>=0.1.0-rc.7 <0.2.0` and the `0.1.7-alpha.1` through `0.1.7` release line.
+- Designed for a DSH web profile with the published Cordis, tools, LLM, session, and settings packages.
+- Version 0.1.3 was smoke-tested in a clean Web profile on DeepSeek Harness `0.2.0-rc.2` and Node `24.18.0`; activation and the plugin's local health route succeeded. Its used APIs were also checked against that source release.
+- Package metadata also retains support for DSH `>=0.1.0-rc.7 <0.2.0` and the `0.1.7-alpha.1` through `0.1.7` release line.
 - The replacement process uses the profile's normal DSH web launch path and configured port; the plugin does not choose a GPU, model, or port.
 - Restart recovery requires a root browser session that reconnects within the selected handoff window.
 - A process that is killed before it writes the restart marker cannot provide a session handoff.

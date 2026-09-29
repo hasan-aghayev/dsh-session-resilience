@@ -39,8 +39,8 @@ test('published manifest and host artifacts expose the standalone package', asyn
   const manifest = await readJson(join(root, 'package.json'));
   const host = await readFile(join(root, 'lib/index.js'), 'utf8');
   assert.equal(manifest.name, 'dsh-session-resilience');
-  assert.equal(manifest.version, '0.1.2');
-  assert.equal(manifest.engines.dsh, '>=0.1.0-rc.7 <0.2.0 || >=0.1.7-alpha.1 <0.1.8');
+  assert.equal(manifest.version, '0.1.3');
+  assert.equal(manifest.engines.dsh, '>=0.1.0-rc.7 <0.2.0 || >=0.1.7-alpha.1 <0.1.8 || 0.2.0-rc.2 || ^0.2.0');
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml');
   assert.equal((await readFile(join(root, 'cordis.patch.yml'), 'utf8')).includes('dsh-session-resilience'), true);
   assert.equal(host.includes('restartResumeWindowMs: 300 * 1e3'), true);

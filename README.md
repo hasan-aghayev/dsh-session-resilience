@@ -40,6 +40,16 @@ dsh plugin --profile <profile> add https://github.com/hasan-aghayev/dsh-session-
 dsh plugin --profile <profile> remove dsh-session-resilience
 ```
 
+### Update an existing profile
+
+Publishing a release does not replace the archive already pinned in a profile's `package.json`. If DSH reports `dsh-session-resilience: pending (waiting for service: settingsScope)`, that profile is still using the 0.1.1 client bundle, which requests the removed settings service. Update the profile to 0.1.3 and restart it:
+
+```sh
+dsh plugin --profile web add -w https://github.com/hasan-aghayev/dsh-session-resilience/releases/download/v0.1.3/dsh-session-resilience-0.1.3.tgz
+```
+
+Replace `web` with the profile name. The DSH-managed command updates the pinned package URL and installed files; adding a release to a catalog does not upgrade profiles that already contain an older archive.
+
 The repository metadata is already configured for this public GitHub repository. Submit one entry for its public URL to the [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) catalog after the local checks pass. The catalog validates the bundle manifest and generates the market data used by [dsh-market](https://github.com/dsh-market/dsh-market); npm publication is not required for Git-based installation.
 
 ## Controls

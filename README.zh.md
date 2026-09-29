@@ -40,6 +40,16 @@ dsh plugin --profile <profile> add https://github.com/hasan-aghayev/dsh-session-
 dsh plugin --profile <profile> remove dsh-session-resilience
 ```
 
+### 更新已有安装
+
+发布新版本不会替换 profile 的 `package.json` 中已固定的旧归档。如果 DSH 显示 `dsh-session-resilience: pending (waiting for service: settingsScope)`，说明该 profile 仍在使用会请求旧 settings 服务的 0.1.1 客户端。将 profile 更新到 0.1.3 并重启：
+
+```sh
+dsh plugin --profile web add -w https://github.com/hasan-aghayev/dsh-session-resilience/releases/download/v0.1.3/dsh-session-resilience-0.1.3.tgz
+```
+
+把 `web` 替换为实际 profile 名称。该 DSH 管理命令会更新固定的包 URL 和已安装文件；只把新版本加入目录不会更新已经安装的旧归档。
+
 仓库 metadata 已经配置为这个公开 GitHub 仓库。完成本地检查后，可以通过 [dsh.pub/submit](https://dsh.pub/en/submit/) 提交公开 URL。目录服务会校验指定 commit 并生成可审计的目录 pull request；基于 Git 安装不要求先发布到 npm。
 
 ## 控制按钮

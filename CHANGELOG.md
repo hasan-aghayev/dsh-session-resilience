@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Document how to update profiles pinned to the DSH 0.1.1 client bundle when startup waits for `settingsScope`.
+
 ## 0.1.3 - 2026-09-29
 
 - Add DSH `0.2.0-rc.2` to the supported host and peer-package ranges while retaining the existing DSH 0.1.x ranges.

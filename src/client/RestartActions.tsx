@@ -39,14 +39,17 @@ function createRestartRequestId(): string {
 async function sendAction(action: Exclude<BusyAction, undefined>, restartRequestId?: string): Promise<void> {
   const query = restartRequestId === undefined ? '' : `?requestId=${encodeURIComponent(restartRequestId)}`;
   const endpoint = `/dsh-restart/${action}${query}`;
-  if (typeof navigator.sendBeacon === 'function'
-    && navigator.sendBeacon(endpoint, new Blob([], { type: 'text/plain' }))) return;
-
   const response = await fetchWithTimeout(endpoint, {
     method: 'POST',
     headers: { accept: 'application/json' },
+    credentials: 'same-origin',
   }, ACTION_REQUEST_TIMEOUT_MS);
   if (!response.ok) throw new Error(`action ${response.status}`);
+  const result = await response.json() as { ok?: boolean; requestId?: string };
+  if (result.ok !== true) throw new Error('DSH did not accept the action');
+  if (restartRequestId !== undefined && result.requestId !== restartRequestId) {
+    throw new Error('DSH accepted a different restart request');
+  }
 }
 
 async function waitForReplacementHost(restartRequestId: string): Promise<RestartStatus & { instanceId: string; launchUrl: string }> {

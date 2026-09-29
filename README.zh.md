@@ -42,10 +42,10 @@ dsh plugin --profile <profile> remove dsh-session-resilience
 
 ### 更新已有安装
 
-发布新版本不会替换 profile 的 `package.json` 中已固定的旧归档。如果 DSH 显示 `dsh-session-resilience: pending (waiting for service: settingsScope)`，说明该 profile 仍在使用会请求旧 settings 服务的 0.1.1 客户端。将 profile 更新到 0.1.8 并重启：
+发布新版本不会替换 profile 的 `package.json` 中已固定的旧归档。如果 DSH 显示 `dsh-session-resilience: pending (waiting for service: settingsScope)`，说明该 profile 仍在使用会请求旧 settings 服务的 0.1.1 客户端。将 profile 更新到 0.1.9 并重启：
 
 ```sh
-dsh plugin --profile web add -w https://github.com/hasan-aghayev/dsh-session-resilience/releases/download/v0.1.8/dsh-session-resilience-0.1.8.tgz
+dsh plugin --profile web add -w https://github.com/hasan-aghayev/dsh-session-resilience/releases/download/v0.1.9/dsh-session-resilience-0.1.9.tgz
 ```
 
 把 `web` 替换为实际 profile 名称。该 DSH 管理命令会更新固定的包 URL 和已安装文件；只把新版本加入目录不会更新已经安装的旧归档。
@@ -59,7 +59,7 @@ Web 侧边栏在状态指示灯旁保留两个紧凑控制：
 - **重启** — 记录正在运行的根会话，在配置端口启动替代 DSH Host，并在原页面中重新建立连接。
 - **停止** — 停止当前 DSH Host，不启动替代进程；当前页面保持打开但会断开连接。
 
-状态指示灯读取 DSH 公共连接服务，不会通过 HTTP 持续轮询 Host。重启和停止会先发送一个小型同源信标请求，避免等待中的浏览器请求阻止重启命令，也避免 DSH 停止时页面跳转。如果浏览器无法排入信标请求，插件会改用有时限的请求。重启期间，侧边栏会等待带有同一一次性请求 ID 的新进程，在当前来源的后台交换启动 token，通过 DSH 公共连接服务主动重连，并等待新连接就绪后才报告成功。当前页面、视图和未发送的草稿都会保留。如果启动、认证或连接恢复超过各自的等待时限，按钮会显示错误；控制台只记录失败步骤和错误类型，不会记录启动 URL 或 token。若浏览器无法恢复连接，仍可手动刷新页面。
+状态指示灯读取 DSH 公共连接服务，不会通过 HTTP 持续轮询 Host。重启和停止会发送同源请求，并等待 DSH 确认已接收操作后再开始恢复。重启期间，侧边栏会等待带有同一一次性请求 ID 的新进程，在当前来源的后台交换启动 token，通过 DSH 公共连接服务主动重连，并等待新连接就绪后才报告成功。当前页面、视图和未发送的草稿都会保留。如果启动、认证或连接恢复超过各自的等待时限，按钮会显示错误；控制台只记录失败步骤和错误类型，不会记录启动 URL 或 token。若浏览器无法恢复连接，仍可手动刷新页面。
 
 即使关闭自动恢复，设置卡仍会保留手动重启和停止控制。
 

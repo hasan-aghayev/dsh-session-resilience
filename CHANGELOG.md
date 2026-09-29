@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.9 - 2026-09-29
+
+- Send restart and stop actions as same-origin requests and wait for DSH to confirm acceptance before waiting for recovery.
+- Verify the host returns the same restart request id before reconnecting the page.
+- Document acknowledged restart requests and the in-place recovery sequence.
+
 ## 0.1.8 - 2026-09-29
 
 - Queue the restart command before requesting status, so a stalled browser fetch cannot prevent the restart from starting.

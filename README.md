@@ -42,10 +42,10 @@ dsh plugin --profile <profile> remove dsh-session-resilience
 
 ### Update an existing profile
 
-Publishing a release does not replace the archive already pinned in a profile's `package.json`. If DSH reports `dsh-session-resilience: pending (waiting for service: settingsScope)`, that profile is still using the 0.1.1 client bundle, which requests the removed settings service. Update the profile to 0.1.8 and restart it:
+Publishing a release does not replace the archive already pinned in a profile's `package.json`. If DSH reports `dsh-session-resilience: pending (waiting for service: settingsScope)`, that profile is still using the 0.1.1 client bundle, which requests the removed settings service. Update the profile to 0.1.9 and restart it:
 
 ```sh
-dsh plugin --profile web add -w https://github.com/hasan-aghayev/dsh-session-resilience/releases/download/v0.1.8/dsh-session-resilience-0.1.8.tgz
+dsh plugin --profile web add -w https://github.com/hasan-aghayev/dsh-session-resilience/releases/download/v0.1.9/dsh-session-resilience-0.1.9.tgz
 ```
 
 Replace `web` with the profile name. The DSH-managed command updates the pinned package URL and installed files; adding a release to a catalog does not upgrade profiles that already contain an older archive.
@@ -59,7 +59,7 @@ The web sidebar keeps two compact controls beside the status indicator:
 - **Restart** records active root sessions, starts a replacement DSH host on the configured port, and reconnects the current page after the replacement is ready.
 - **Stop** stops the active DSH host without starting a replacement process; the current page stays open but disconnected.
 
-The status indicator follows DSH's public connection service and does not poll the host over HTTP. Restart and stop submit a small same-origin beacon, so a pending browser request cannot hold up the restart command and the page does not navigate away while DSH stops. If the browser cannot queue the beacon, the plugin uses a bounded request fallback. During restart, the sidebar waits for a replacement host that reports the same one-time request id, exchanges its launch token in the background on the current origin, asks DSH to reconnect the existing page, and waits until the new connection is ready. The existing page, view, and unsent draft remain in place. If startup, authentication, or connection recovery takes longer than its deadline, the button reports an error and logs only the failed stage and error type; it never logs the launch URL or token. The page can still be refreshed manually if the browser cannot restore its connection.
+The status indicator follows DSH's public connection service and does not poll the host over HTTP. Restart and stop send a same-origin request and wait for DSH to confirm acceptance before recovery begins. During restart, the sidebar waits for a replacement host that reports the same one-time request id, exchanges its launch token in the background on the current origin, asks DSH to reconnect the existing page, and waits until the new connection is ready. The existing page, view, and unsent draft remain in place. If startup, authentication, or connection recovery takes longer than its deadline, the button reports an error and logs only the failed stage and error type; it never logs the launch URL or token. The page can still be refreshed manually if the browser cannot restore its connection.
 
 The settings card remains available when automatic recovery is disabled, so a user can still perform a deliberate manual restart or stop.
 
@@ -118,7 +118,7 @@ The plugin adds no fixed system-prompt prefix. Its model-visible contribution is
 - Version 0.1.3 was smoke-tested in a clean Web profile on DeepSeek Harness `0.2.0-rc.2` and Node `24.18.0`; activation and the plugin's local health route succeeded. Its used APIs were also checked against that source release.
 - Package metadata also retains support for DSH `>=0.1.0-rc.7 <0.2.0` and the `0.1.7-alpha.1` through `0.1.7` release line.
 - The replacement process uses the profile's normal DSH web launch path and configured port; the plugin does not choose a GPU, model, or port.
-- Restart recovery requires a root browser session that reconnects within the selected handoff window. The browser must permit same-origin beacons and the token exchange request.
+- Restart recovery requires a root browser session that reconnects within the selected handoff window. The browser must permit same-origin action requests and the token exchange request.
 - A process that is killed before it writes the restart marker cannot provide a session handoff.
 - The browser must be allowed to reconnect to the local DSH launch URL. Browser policy, an external proxy, or a host-level process manager can still prevent recovery.
 - Provider-specific errors may need a narrow custom retryable pattern. Broad patterns can repeat requests and should be avoided.

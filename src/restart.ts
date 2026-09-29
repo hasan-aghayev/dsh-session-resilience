@@ -1,6 +1,7 @@
 /** Host-side restart controller shared by the restart buttons and the model tool. */
 
 import { spawn } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import { readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -165,6 +166,74 @@ function json(res: { writeHead: (status: number, headers?: Record<string, string
   res.end(JSON.stringify(value))
 }
 
+function wantsHtml(req: LocalRequest): boolean {
+  const accept = req.headers.accept
+  const values = Array.isArray(accept) ? accept : [accept]
+  return values.some(value => typeof value === 'string' && /(?:^|,)\s*text\/html(?:\s*;|,|$)/i.test(value))
+}
+
+function restartDocument(res: { writeHead: (status: number, headers?: Record<string, string>) => void; end: (body?: string) => void }): void {
+  const nonce = randomBytes(18).toString('base64')
+  const script = `(() => {
+  const language = (navigator.language || '').toLowerCase();
+  const message = document.getElementById('restart-message');
+  const detail = document.getElementById('restart-detail');
+  const retry = document.getElementById('restart-retry');
+  const text = language.startsWith('ru')
+    ? ['Перезапускаю DSH…', 'DSH ещё запускается. Нажмите, чтобы проверить снова.', 'Проверить снова']
+    : language.startsWith('zh')
+      ? ['正在重启 DSH…', 'DSH 仍在启动。点击以再次检查。', '再次检查']
+      : ['Restarting DSH…', 'DSH is still starting. Check again.', 'Check again'];
+  message.textContent = text[0];
+  retry.textContent = text[2];
+  let deadline;
+  async function poll() {
+    retry.hidden = true;
+    deadline = Date.now() + 60000;
+    while (Date.now() < deadline) {
+      try {
+        const response = await fetch('/dsh-restart/status', { cache: 'no-store' });
+        if (!response.ok) throw new Error('DSH is not ready');
+        const status = await response.json();
+        if (typeof status.launchUrl === 'string') {
+          const launch = new URL(status.launchUrl, window.location.href);
+          if (launch.origin === window.location.origin) {
+            window.location.replace(launch.href);
+            return;
+          }
+        }
+      } catch {
+        /* The old Host is expected to refuse requests while the replacement starts. */
+      }
+      await new Promise(resolve => window.setTimeout(resolve, 500));
+    }
+    detail.textContent = text[1];
+    retry.hidden = false;
+  }
+  retry.addEventListener('click', () => { void poll(); });
+  void poll();
+})();`
+  res.writeHead(202, {
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'no-store',
+    'content-security-policy': `default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; script-src 'nonce-${nonce}'; connect-src 'self'`,
+    'referrer-policy': 'no-referrer',
+    'x-content-type-options': 'nosniff',
+  })
+  res.end(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Restarting DSH</title></head><body><main><h1 id="restart-message">Restarting DSH…</h1><p id="restart-detail">Keep this page open while DSH reconnects.</p><button id="restart-retry" type="button" hidden>Check again</button></main><script nonce="${nonce}">${script}</script></body></html>`)
+}
+
+function shutdownDocument(res: { writeHead: (status: number, headers?: Record<string, string>) => void; end: (body?: string) => void }): void {
+  res.writeHead(200, {
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'no-store',
+    'content-security-policy': "default-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+    'referrer-policy': 'no-referrer',
+    'x-content-type-options': 'nosniff',
+  })
+  res.end('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DSH stopped</title></head><body><main><h1>DSH stopped</h1><p>You can close this page.</p></main></body></html>')
+}
+
 function scheduleExit(ctx: Context): void {
   setTimeout(() => {
     try {
@@ -264,7 +333,9 @@ export class RestartController {
       handler: (req, res) => {
         if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'method not allowed' }); return }
         if (!trustedLoopback(req)) { json(res, 403, { ok: false, error: 'untrusted origin' }); return }
-        json(res, 200, restart(this.ctx, resolvePort(this.ctx)))
+        const result = restart(this.ctx, resolvePort(this.ctx))
+        if (wantsHtml(req)) restartDocument(res)
+        else json(res, 200, result)
       },
     }))
     this.routeDisposers.push(this.ctx.webServer.register({
@@ -272,7 +343,9 @@ export class RestartController {
       handler: (req, res) => {
         if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'method not allowed' }); return }
         if (!trustedLoopback(req)) { json(res, 403, { ok: false, error: 'untrusted origin' }); return }
-        json(res, 200, shutdown(this.ctx, resolvePort(this.ctx)))
+        const result = shutdown(this.ctx, resolvePort(this.ctx))
+        if (wantsHtml(req)) shutdownDocument(res)
+        else json(res, 200, result)
       },
     }))
   }

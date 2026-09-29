@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client';
 import type { SettingsCardKey } from './locales.ts';
@@ -15,7 +15,6 @@ interface RestartStatus {
 type BusyAction = 'restart' | 'shutdown' | undefined;
 
 const STATUS_REQUEST_TIMEOUT_MS = 2_500;
-const ACTION_REQUEST_TIMEOUT_MS = 5_000;
 const STATUS_REFRESH_INTERVAL_MS = 3_000;
 
 function statusUrl(): string {
@@ -28,25 +27,12 @@ const readStatus = singleFlight(async (): Promise<RestartStatus> => {
   return await response.json() as RestartStatus;
 });
 
-async function waitForLaunchUrl(): Promise<string> {
-  const deadline = Date.now() + 60_000;
-  while (Date.now() < deadline) {
-    try {
-      const status = await readStatus();
-      if (status.launchUrl !== undefined) return status.launchUrl;
-    } catch {
-      // The old Host is expected to refuse requests while the replacement starts.
-    }
-    await new Promise<void>((resolve) => window.setTimeout(resolve, 500));
-  }
-  throw new Error('new DSH launch URL was not published');
-}
-
 /** Render the restart/stop controls in the sidebar footer. */
 export function RestartActions({ t }: RestartActionProps) {
   const [online, setOnline] = useState<boolean | undefined>();
   const [busy, setBusy] = useState<BusyAction>();
   const [message, setMessage] = useState<SettingsCardKey | undefined>();
+  const submitted = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -63,25 +49,22 @@ export function RestartActions({ t }: RestartActionProps) {
     };
   }, []);
 
-  const run = async (action: Exclude<BusyAction, undefined>): Promise<void> => {
+  const run = (action: Exclude<BusyAction, undefined>): void => {
+    if (submitted.current) return;
+    submitted.current = true;
     setBusy(action);
     setMessage(undefined);
     try {
-      const response = await fetchWithTimeout(`/dsh-restart/${action}`, {
-        method: 'POST',
-        headers: { accept: 'application/json' },
-      }, ACTION_REQUEST_TIMEOUT_MS);
-      if (!response.ok) throw new Error(`action ${response.status}`);
-      setOnline(action === 'restart' ? undefined : false);
-      if (action === 'restart') {
-        // The new Host mints a different launch token. Wait for the detached
-        // helper to publish that URL instead of opening an unauthenticated `/`.
-        window.location.assign(await waitForLaunchUrl());
-      }
+      const form = document.createElement('form');
+      form.method = 'post';
+      form.action = `/dsh-restart/${action}`;
+      form.target = '_self';
+      form.hidden = true;
+      document.body.append(form);
+      form.submit();
     } catch {
+      submitted.current = false;
       setMessage(action === 'restart' ? 'restart.restartFailed' : 'restart.shutdownFailed');
-      setOnline(false);
-    } finally {
       setBusy(undefined);
     }
   };

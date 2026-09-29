@@ -42,10 +42,10 @@ dsh plugin --profile <profile> remove dsh-session-resilience
 
 ### Update an existing profile
 
-Publishing a release does not replace the archive already pinned in a profile's `package.json`. If DSH reports `dsh-session-resilience: pending (waiting for service: settingsScope)`, that profile is still using the 0.1.1 client bundle, which requests the removed settings service. Update the profile to 0.1.4 and restart it:
+Publishing a release does not replace the archive already pinned in a profile's `package.json`. If DSH reports `dsh-session-resilience: pending (waiting for service: settingsScope)`, that profile is still using the 0.1.1 client bundle, which requests the removed settings service. Update the profile to 0.1.5 and restart it:
 
 ```sh
-dsh plugin --profile web add -w https://github.com/hasan-aghayev/dsh-session-resilience/releases/download/v0.1.4/dsh-session-resilience-0.1.4.tgz
+dsh plugin --profile web add -w https://github.com/hasan-aghayev/dsh-session-resilience/releases/download/v0.1.5/dsh-session-resilience-0.1.5.tgz
 ```
 
 Replace `web` with the profile name. The DSH-managed command updates the pinned package URL and installed files; adding a release to a catalog does not upgrade profiles that already contain an older archive.
@@ -59,7 +59,7 @@ The web sidebar keeps two compact controls beside the status indicator:
 - **Restart** records active root sessions, starts a replacement DSH host on the configured port, waits for its tokenized launch URL, and lets the browser reconnect.
 - **Stop** stops the active DSH host without starting a replacement process.
 
-Status and restart requests have deadlines, and concurrent status checks share one request. If the browser loses its local connection during a restart, the failed request is canceled and retried instead of remaining pending or filling the browser's connection pool.
+Status checks have a deadline and concurrent checks share one request. Restart and stop use a same-origin form navigation instead of a background request. This closes the current page's live connections before DSH stops, so the action can reach the host even when other browser streams have filled its request queue. Restart shows a small local handoff page, waits for the replacement host's tokenized launch URL, and returns to DSH. It offers another check if startup takes longer than a minute.
 
 The settings card remains available when automatic recovery is disabled, so a user can still perform a deliberate manual restart or stop.
 

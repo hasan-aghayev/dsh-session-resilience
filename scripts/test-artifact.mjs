@@ -40,7 +40,7 @@ test('published manifest and host artifacts expose the standalone package', asyn
   const manifest = await readJson(join(root, 'package.json'));
   const host = await readFile(join(root, 'lib/index.js'), 'utf8');
   assert.equal(manifest.name, 'dsh-session-resilience');
-  assert.equal(manifest.version, '0.1.4');
+  assert.equal(manifest.version, '0.1.5');
   assert.equal(manifest.engines.dsh, '>=0.1.0-rc.7 <0.2.0 || >=0.1.7-alpha.1 <0.1.8 || 0.2.0-rc.2 || ^0.2.0');
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml');
   assert.equal((await readFile(join(root, 'cordis.patch.yml'), 'utf8')).includes('dsh-session-resilience'), true);
@@ -87,10 +87,25 @@ test('client requests time out and concurrent status checks share one request', 
   assert.equal(await next, 'ready');
 });
 
+test('browser restart controls use page navigation and the host serves a reconnect page', async () => {
+  const client = await readFile(join(root, 'lib/client.js'), 'utf8');
+  const host = await readFile(join(root, 'lib/index.js'), 'utf8');
+  assert.match(client, /form\.method = "post"/);
+  assert.match(client, /form\.target = "_self"/);
+  assert.match(client, /form\.submit\(\)/);
+  assert.match(host, /function restartDocument/);
+  assert.match(host, /content-security-policy/);
+  assert.match(host, /window\.location\.replace\(launch\.href\)/);
+  assert.match(host, /launch\.origin === window\.location\.origin/);
+  assert.match(host, /function wantsHtml/);
+});
+
 test('published client registers the settings card and sidebar controls', async () => {
   let loaderDefinition;
   const context = vm.createContext({
     window: {
+      clearInterval() {},
+      setInterval() { return 1; },
       __ModuleLoader__: {
         load(definition) { loaderDefinition = definition; },
       },
@@ -116,8 +131,15 @@ test('published client registers the settings card and sidebar controls', async 
     value: { locale: 'en' },
   });
   const modules = {
-    react: {},
-    'react/jsx-runtime': {},
+    react: {
+      useEffect: (effect) => { effect(); },
+      useRef: (current) => ({ current }),
+      useState: (initial) => [initial, () => {}],
+    },
+    'react/jsx-runtime': {
+      jsx: (type, props) => ({ type, props }),
+      jsxs: (type, props) => ({ type, props }),
+    },
     '@deepseek-ai/dsh-client-store': { createSnapshotStore: snapshotStore },
     '@deepseek-ai/dsh-client-store-legacy': { createSnapshotStore: snapshotStore },
   };
@@ -161,6 +183,35 @@ test('published client registers the settings card and sidebar controls', async 
   const actions = registrations.find(({ options }) => options.name === 'sidebar.footer.action');
   assert.ok(actions);
   assert.equal(actions.options.id, 'dsh-session-resilience-actions');
+
+  const forms = [];
+  context.document = {
+    body: { append: (form) => { forms.push(form); } },
+    createElement: (name) => {
+      assert.equal(name, 'form');
+      return { submit() { this.submitted = true; } };
+    },
+  };
+  const tree = actions.component({ t: (key) => key });
+  const findAction = (node, action) => {
+    if (node === null || typeof node !== 'object') return undefined;
+    if (node.props?.['data-dsh-restart-action'] === action) return node;
+    const children = node.props?.children;
+    for (const child of Array.isArray(children) ? children : [children]) {
+      const found = findAction(child, action);
+      if (found !== undefined) return found;
+    }
+    return undefined;
+  };
+  const restart = findAction(tree, 'restart');
+  assert.ok(restart);
+  restart.props.onClick();
+  restart.props.onClick();
+  assert.equal(forms.length, 1);
+  assert.equal(forms[0].method, 'post');
+  assert.equal(forms[0].action, '/dsh-restart/restart');
+  assert.equal(forms[0].target, '_self');
+  assert.equal(forms[0].submitted, true);
 });
 
 test('published restart helper waits for readiness before declaring relaunch success', async () => {

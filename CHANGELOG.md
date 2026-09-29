@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.5 - 2026-09-29
+
+- Submit browser restart and stop actions as same-origin page navigations so open streaming connections cannot hold them in the fetch queue.
+- Show a local reconnect page that waits for the replacement host's tokenized launch URL, with a retry option for slow startup.
+- Keep the JSON action response for model tools and other non-browser callers.
+
 ## 0.1.4 - 2026-09-29
 
 - Cancel stalled browser requests and retry status checks after they settle.

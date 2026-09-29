@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-resilience",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Safe DSH restarts with bounded token-aware reconnect and policy-based session recovery for DSH 0.2+",
   "type": "module",
   "main": "lib/index.js",

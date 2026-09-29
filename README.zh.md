@@ -42,10 +42,10 @@ dsh plugin --profile <profile> remove dsh-session-resilience
 
 ### 更新已有安装
 
-发布新版本不会替换 profile 的 `package.json` 中已固定的旧归档。如果 DSH 显示 `dsh-session-resilience: pending (waiting for service: settingsScope)`，说明该 profile 仍在使用会请求旧 settings 服务的 0.1.1 客户端。将 profile 更新到 0.1.4 并重启：
+发布新版本不会替换 profile 的 `package.json` 中已固定的旧归档。如果 DSH 显示 `dsh-session-resilience: pending (waiting for service: settingsScope)`，说明该 profile 仍在使用会请求旧 settings 服务的 0.1.1 客户端。将 profile 更新到 0.1.5 并重启：
 
 ```sh
-dsh plugin --profile web add -w https://github.com/hasan-aghayev/dsh-session-resilience/releases/download/v0.1.4/dsh-session-resilience-0.1.4.tgz
+dsh plugin --profile web add -w https://github.com/hasan-aghayev/dsh-session-resilience/releases/download/v0.1.5/dsh-session-resilience-0.1.5.tgz
 ```
 
 把 `web` 替换为实际 profile 名称。该 DSH 管理命令会更新固定的包 URL 和已安装文件；只把新版本加入目录不会更新已经安装的旧归档。
@@ -59,7 +59,7 @@ Web 侧边栏在状态指示灯旁保留两个紧凑控制：
 - **重启** — 记录正在运行的根会话，在配置端口启动替代 DSH Host，等待带 token 的启动 URL，再让浏览器重新连接。
 - **停止** — 停止当前 DSH Host，不启动替代进程。
 
-状态检查和重启请求都设有时限，并发的状态检查会共用同一个请求。浏览器在重启期间失去本地连接时，失败请求会被取消并重试，避免请求一直挂起或占满浏览器连接数。
+状态检查设有时限，并发检查会共用同一个请求。重启和停止通过同源表单导航执行，而不是发送后台请求。这样会先关闭当前页面的长连接，即使其它浏览器数据流占满请求队列，控制请求仍能到达 Host。重启后会显示本地接力页，等待替代 Host 的带 token 启动 URL，然后返回 DSH。如果启动超过一分钟，页面会提供再次检查按钮。
 
 即使关闭自动恢复，设置卡仍会保留手动重启和停止控制。
 

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.1.10 - 2026-09-29
+
+- Match the replacement host by its own reported instance id instead of the launcher process id, so hosts started through wrappers can complete the first restart handoff.
+- Record and verify the replacement instance id before publishing its launch URL.
+
 ## 0.1.9 - 2026-09-29
 
 - Send restart and stop actions as same-origin requests and wait for DSH to confirm acceptance before waiting for recovery.

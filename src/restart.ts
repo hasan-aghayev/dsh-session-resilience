@@ -18,7 +18,7 @@ const INSTANCE_ID = `${process.pid}-${Date.now()}`
 const HELPER_FILE = fileURLToPath(new URL('./restart-helper.cjs', import.meta.url))
 
 type RestartRecord = { sessionIds: string[]; restartAt: string; pid: number }
-type RestartMarker = { requestId?: string; newPid?: number; launchUrl?: string }
+type RestartMarker = { requestId?: string; newPid?: number; newInstanceId?: string; launchUrl?: string }
 type RestartResult = {
   ok: true
   action: 'restart'
@@ -88,7 +88,7 @@ function readRecord(): RestartRecord | undefined {
 function currentLaunch(port: number): { url: string; requestId?: string } | undefined {
   try {
     const marker = JSON.parse(readFileSync(markerPath(port), 'utf8')) as RestartMarker
-    if (marker.newPid !== process.pid || typeof marker.launchUrl !== 'string') return undefined
+    if (marker.newInstanceId !== INSTANCE_ID || typeof marker.launchUrl !== 'string') return undefined
     return {
       url: marker.launchUrl,
       ...(typeof marker.requestId === 'string' ? { requestId: marker.requestId } : {}),

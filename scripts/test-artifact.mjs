@@ -41,7 +41,7 @@ test('published manifest and host artifacts expose the standalone package', asyn
   const manifest = await readJson(join(root, 'package.json'));
   const host = await readFile(join(root, 'lib/index.js'), 'utf8');
   assert.equal(manifest.name, 'dsh-session-resilience');
-  assert.equal(manifest.version, '0.1.9');
+  assert.equal(manifest.version, '0.1.10');
   assert.equal(manifest.engines.dsh, '>=0.1.0-rc.7 <0.2.0 || >=0.1.7-alpha.1 <0.1.8 || 0.2.0-rc.2 || ^0.2.0');
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml');
   assert.equal((await readFile(join(root, 'cordis.patch.yml'), 'utf8')).includes('dsh-session-resilience'), true);
@@ -53,6 +53,7 @@ test('published manifest and host artifacts expose the standalone package', asyn
     'request body too large',
     'cannot prepare restart handoff',
     'bridgeRouteDisposers',
+    'marker.newInstanceId !== INSTANCE_ID',
   ]) {
     assert.equal(host.includes(marker), true, `missing production marker: ${marker}`);
   }
@@ -331,7 +332,7 @@ test('published restart helper waits for readiness before declaring relaunch suc
     'const http=require("node:http")',
     'const port=Number(process.argv.at(-1))',
     'process.stdout.write("dsh web: http://127.0.0.1:"+port+"\\n")',
-    'const server=http.createServer((_request,response)=>{response.writeHead(200,{"content-type":"application/json"});response.end("{}")})',
+    'const server=http.createServer((_request,response)=>{response.writeHead(200,{"content-type":"application/json"});response.end(JSON.stringify({instanceId:"replacement-runtime-42"}))})',
     'server.listen(port,"127.0.0.1")',
     'setTimeout(()=>server.close(()=>process.exit(0)),5000)',
   ].join(';');
@@ -356,6 +357,8 @@ test('published restart helper waits for readiness before declaring relaunch suc
     await waitFor(async () => (await readFile(logOut, 'utf8').catch(() => '')).includes('http200=true and launchUrl=true'));
     const marker = await readJson(markerPath);
     assert.equal(typeof marker.newPid, 'number');
+    assert.equal(marker.newInstanceId, 'replacement-runtime-42');
+    assert.notEqual(marker.newInstanceId, String(marker.newPid));
     assert.match(marker.launchUrl, /^http:\/\/127\.0\.0\.1:\d+$/);
   } finally {
     const marker = await readJson(markerPath).catch(() => ({}));

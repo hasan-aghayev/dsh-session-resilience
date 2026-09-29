@@ -15,7 +15,9 @@ interface RestartStatus {
 type BusyAction = 'restart' | 'shutdown' | undefined;
 
 const STATUS_REQUEST_TIMEOUT_MS = 2_500;
+const ACTION_REQUEST_TIMEOUT_MS = 5_000;
 const STATUS_REFRESH_INTERVAL_MS = 3_000;
+const RESTART_WAIT_TIMEOUT_MS = 60_000;
 
 function statusUrl(): string {
   return '/dsh-restart/status';
@@ -26,6 +28,48 @@ const readStatus = singleFlight(async (): Promise<RestartStatus> => {
   if (!response.ok) throw new Error(`status ${response.status}`);
   return await response.json() as RestartStatus;
 });
+
+async function sendAction(action: Exclude<BusyAction, undefined>): Promise<void> {
+  const endpoint = `/dsh-restart/${action}`;
+  if (typeof navigator.sendBeacon === 'function'
+    && navigator.sendBeacon(endpoint, new Blob([], { type: 'text/plain' }))) return;
+
+  const response = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: { accept: 'application/json' },
+  }, ACTION_REQUEST_TIMEOUT_MS);
+  if (!response.ok) throw new Error(`action ${response.status}`);
+}
+
+async function waitForReplacementHost(previousInstanceId: string): Promise<RestartStatus & { instanceId: string; launchUrl: string }> {
+  const deadline = Date.now() + RESTART_WAIT_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    try {
+      const status = await readStatus();
+      if (status.instanceId !== undefined && status.instanceId !== previousInstanceId && status.launchUrl !== undefined) return status;
+    } catch {
+      // The old Host is expected to refuse requests while the replacement starts.
+    }
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 500));
+  }
+  throw new Error('replacement DSH host did not become ready');
+}
+
+async function authenticateReplacement(launchUrl: string): Promise<void> {
+  const launch = new URL(launchUrl, window.location.href);
+  if (launch.protocol !== 'http:' && launch.protocol !== 'https:') {
+    throw new Error('replacement DSH launch URL must use HTTP');
+  }
+  // Keep the browser on its current origin while exchanging the new process token.
+  launch.protocol = window.location.protocol;
+  launch.host = window.location.host;
+  const response = await fetchWithTimeout(launch.href, {
+    cache: 'no-store',
+    credentials: 'same-origin',
+  }, ACTION_REQUEST_TIMEOUT_MS);
+  if (!response.ok) throw new Error(`replacement authentication ${response.status}`);
+  await response.arrayBuffer();
+}
 
 /** Render the restart/stop controls in the sidebar footer. */
 export function RestartActions({ t }: RestartActionProps) {
@@ -49,23 +93,34 @@ export function RestartActions({ t }: RestartActionProps) {
     };
   }, []);
 
-  const run = (action: Exclude<BusyAction, undefined>): void => {
+  const run = async (action: Exclude<BusyAction, undefined>): Promise<void> => {
     if (submitted.current) return;
     submitted.current = true;
     setBusy(action);
     setMessage(undefined);
+    let previousInstanceId: string | undefined;
     try {
-      const form = document.createElement('form');
-      form.method = 'post';
-      form.action = `/dsh-restart/${action}`;
-      form.target = '_self';
-      form.hidden = true;
-      document.body.append(form);
-      form.submit();
+      if (action === 'restart') {
+        const previous = await readStatus();
+        if (previous.instanceId === undefined) throw new Error('current DSH instance is unavailable');
+        previousInstanceId = previous.instanceId;
+      }
+      await sendAction(action);
+      if (action === 'restart') {
+        if (previousInstanceId === undefined) throw new Error('current DSH instance is unavailable');
+        setOnline(undefined);
+        const replacement = await waitForReplacementHost(previousInstanceId);
+        await authenticateReplacement(replacement.launchUrl);
+        setOnline(true);
+      } else {
+        setOnline(false);
+      }
     } catch {
-      submitted.current = false;
+      if (action === 'restart') setOnline(false);
       setMessage(action === 'restart' ? 'restart.restartFailed' : 'restart.shutdownFailed');
+    } finally {
       setBusy(undefined);
+      submitted.current = false;
     }
   };
 

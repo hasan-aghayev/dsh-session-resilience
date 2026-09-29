@@ -40,7 +40,7 @@ test('published manifest and host artifacts expose the standalone package', asyn
   const manifest = await readJson(join(root, 'package.json'));
   const host = await readFile(join(root, 'lib/index.js'), 'utf8');
   assert.equal(manifest.name, 'dsh-session-resilience');
-  assert.equal(manifest.version, '0.1.5');
+  assert.equal(manifest.version, '0.1.6');
   assert.equal(manifest.engines.dsh, '>=0.1.0-rc.7 <0.2.0 || >=0.1.7-alpha.1 <0.1.8 || 0.2.0-rc.2 || ^0.2.0');
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml');
   assert.equal((await readFile(join(root, 'cordis.patch.yml'), 'utf8')).includes('dsh-session-resilience'), true);
@@ -87,12 +87,14 @@ test('client requests time out and concurrent status checks share one request', 
   assert.equal(await next, 'ready');
 });
 
-test('browser restart controls use page navigation and the host serves a reconnect page', async () => {
+test('browser restart controls reconnect in place and the host keeps its legacy handoff route', async () => {
   const client = await readFile(join(root, 'lib/client.js'), 'utf8');
   const host = await readFile(join(root, 'lib/index.js'), 'utf8');
-  assert.match(client, /form\.method = "post"/);
-  assert.match(client, /form\.target = "_self"/);
-  assert.match(client, /form\.submit\(\)/);
+  assert.match(client, /navigator\.sendBeacon/);
+  assert.match(client, /waitForReplacementHost/);
+  assert.match(client, /credentials: "same-origin"/);
+  assert.doesNotMatch(client, /form\.target = "_self"/);
+  assert.doesNotMatch(client, /window\.location\.(?:assign|replace)\(/);
   assert.match(host, /function restartDocument/);
   assert.match(host, /content-security-policy/);
   assert.match(host, /window\.location\.replace\(launch\.href\)/);
@@ -102,14 +104,46 @@ test('browser restart controls use page navigation and the host serves a reconne
 
 test('published client registers the settings card and sidebar controls', async () => {
   let loaderDefinition;
+  let beaconCount = 0;
+  let tokenExchanged = false;
+  let formCount = 0;
   const context = vm.createContext({
     window: {
       clearInterval() {},
       setInterval() { return 1; },
+      setTimeout,
+      location: {
+        href: 'http://127.0.0.1:3080/',
+        protocol: 'http:',
+        host: '127.0.0.1:3080',
+      },
       __ModuleLoader__: {
         load(definition) { loaderDefinition = definition; },
       },
     },
+    navigator: {
+      sendBeacon(url) {
+        assert.equal(url, '/dsh-restart/restart');
+        beaconCount += 1;
+        return true;
+      },
+    },
+    fetch: async (input) => {
+      if (String(input) === '/dsh-restart/status') {
+        return {
+          ok: true,
+          json: async () => beaconCount === 0
+            ? { ok: true, instanceId: 'old' }
+            : { ok: true, instanceId: 'new', launchUrl: 'http://127.0.0.1:3080/?token=fresh' },
+        };
+      }
+      assert.equal(String(input), 'http://127.0.0.1:3080/?token=fresh');
+      tokenExchanged = true;
+      return { ok: true, arrayBuffer: async () => new ArrayBuffer(0) };
+    },
+    Blob,
+    URL,
+    AbortController,
     console,
     setTimeout,
     clearTimeout,
@@ -184,9 +218,8 @@ test('published client registers the settings card and sidebar controls', async 
   assert.ok(actions);
   assert.equal(actions.options.id, 'dsh-session-resilience-actions');
 
-  const forms = [];
   context.document = {
-    body: { append: (form) => { forms.push(form); } },
+    body: { append: () => { formCount += 1; } },
     createElement: (name) => {
       assert.equal(name, 'form');
       return { submit() { this.submitted = true; } };
@@ -207,11 +240,10 @@ test('published client registers the settings card and sidebar controls', async 
   assert.ok(restart);
   restart.props.onClick();
   restart.props.onClick();
-  assert.equal(forms.length, 1);
-  assert.equal(forms[0].method, 'post');
-  assert.equal(forms[0].action, '/dsh-restart/restart');
-  assert.equal(forms[0].target, '_self');
-  assert.equal(forms[0].submitted, true);
+  await waitFor(() => tokenExchanged);
+  assert.equal(beaconCount, 1);
+  assert.equal(formCount, 0);
+  assert.equal(context.window.location.href, 'http://127.0.0.1:3080/');
 });
 
 test('published restart helper waits for readiness before declaring relaunch success', async () => {

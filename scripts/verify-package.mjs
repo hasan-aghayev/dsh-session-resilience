@@ -52,6 +52,11 @@ if (!clientBundle.includes('plugins.item') || clientBundle.includes('settings.pl
   throw new Error('Client bundle does not use the current Plugins page and configuration forms.');
 }
 if (!clientBundle.includes('configForms')) throw new Error('Client bundle does not load the configuration form service.');
+if (!clientBundle.includes('navigator.sendBeacon')
+  || !clientBundle.includes('credentials: "same-origin"')
+  || clientBundle.includes('form.target = "_self"')) {
+  throw new Error('Client bundle does not preserve the page while requesting a restart.');
+}
 
 const hostBundle = readFileSync(resolve(root, 'lib/index.js'), 'utf8');
 for (const marker of [

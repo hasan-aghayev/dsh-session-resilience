@@ -1,5 +1,5 @@
 ---
-description: "为 DSH 0.2+ Web 配置提供安全重启、带 token 的重连和策略化会话恢复。"
+description: "为 DSH 0.2+ Web 配置提供安全重启、原页面内重连和策略化会话恢复。"
 kind: "package-bundle"
 ---
 
@@ -9,12 +9,12 @@ kind: "package-bundle"
 
 ## 摘要
 
-DSH Session Resilience 让长时间运行的 Web 会话在本地 DSH 主机重启、断线、达到 token 上限或开始重复工作时继续可恢复。它把本地重启/停止按钮、由 Host 管理的自动接续、带 token 的重连、四种恢复策略、幂等护栏、自适应退避、循环保护和实时恢复面板放在一个插件中。
+DSH Session Resilience 让长时间运行的 Web 会话在本地 DSH 主机重启、断线、达到 token 上限或开始重复工作时继续可恢复。它把本地重启/停止按钮、由 Host 管理的自动接续、原页面内重连、四种恢复策略、幂等护栏、自适应退避、循环保护和实时恢复面板放在一个插件中。
 
 ## 与同类插件的区别
 
 - **恢复策略** — Safe、Balanced、Long task 和 Manual 会一起调整恢复窗口、冷却时间、重试上限、扫描范围和退避。Manual 会保留下方每个参数的编辑权。
-- **带 token 的重连** — 浏览器等待替代 Host 的真实启动 URL，再重新连接，不会直接打开未认证的根路径。
+- **原页面内重连** — 浏览器在后台交换替代 Host 的启动 token。DSH 会恢复实时连接，保留当前页面和未发送的草稿。
 - **一个恢复中心** — 重启、停止、自动接续、循环保护、错误分类、通知、统计和暂停会话都在同一张设置卡里管理。
 - **DSH 原生控制面板** — 设置卡使用 DSH 语义 token 和紧凑字段密度，并通过自定义模块栏和编号分组建立自己的界面，而不是再引入一套视觉主题。
 - **不虚报成功** — 只有替代 Host 可以访问并且已经找到新的启动 URL 后，重启才会进入可连接状态。
@@ -42,10 +42,10 @@ dsh plugin --profile <profile> remove dsh-session-resilience
 
 ### 更新已有安装
 
-发布新版本不会替换 profile 的 `package.json` 中已固定的旧归档。如果 DSH 显示 `dsh-session-resilience: pending (waiting for service: settingsScope)`，说明该 profile 仍在使用会请求旧 settings 服务的 0.1.1 客户端。将 profile 更新到 0.1.5 并重启：
+发布新版本不会替换 profile 的 `package.json` 中已固定的旧归档。如果 DSH 显示 `dsh-session-resilience: pending (waiting for service: settingsScope)`，说明该 profile 仍在使用会请求旧 settings 服务的 0.1.1 客户端。将 profile 更新到 0.1.6 并重启：
 
 ```sh
-dsh plugin --profile web add -w https://github.com/hasan-aghayev/dsh-session-resilience/releases/download/v0.1.5/dsh-session-resilience-0.1.5.tgz
+dsh plugin --profile web add -w https://github.com/hasan-aghayev/dsh-session-resilience/releases/download/v0.1.6/dsh-session-resilience-0.1.6.tgz
 ```
 
 把 `web` 替换为实际 profile 名称。该 DSH 管理命令会更新固定的包 URL 和已安装文件；只把新版本加入目录不会更新已经安装的旧归档。
@@ -56,10 +56,10 @@ dsh plugin --profile web add -w https://github.com/hasan-aghayev/dsh-session-res
 
 Web 侧边栏在状态指示灯旁保留两个紧凑控制：
 
-- **重启** — 记录正在运行的根会话，在配置端口启动替代 DSH Host，等待带 token 的启动 URL，再让浏览器重新连接。
-- **停止** — 停止当前 DSH Host，不启动替代进程。
+- **重启** — 记录正在运行的根会话，在配置端口启动替代 DSH Host，并在原页面中重新建立连接。
+- **停止** — 停止当前 DSH Host，不启动替代进程；当前页面保持打开但会断开连接。
 
-状态检查设有时限，并发检查会共用同一个请求。重启和停止通过同源表单导航执行，而不是发送后台请求。这样会先关闭当前页面的长连接，即使其它浏览器数据流占满请求队列，控制请求仍能到达 Host。重启后会显示本地接力页，等待替代 Host 的带 token 启动 URL，然后返回 DSH。如果启动超过一分钟，页面会提供再次检查按钮。
+状态检查设有时限，并发检查会共用同一个请求。重启和停止会发送一个小型同源信标请求，因此 DSH 停止时页面不会跳转。如果浏览器无法排入信标请求，插件会改用有时限的请求。重启期间，侧边栏会等待新进程就绪，在当前来源的后台交换启动 token，然后由 DSH 的连接重试机制恢复实时连接。当前页面、视图和未发送的草稿都会保留。如果启动或认证超过一分钟，按钮会显示错误；可以手动刷新页面重新连接。
 
 即使关闭自动恢复，设置卡仍会保留手动重启和停止控制。
 
@@ -118,7 +118,7 @@ Web 侧边栏在状态指示灯旁保留两个紧凑控制：
 - 0.1.3 版本已在 DeepSeek Harness `0.2.0-rc.2` 和 Node `24.18.0` 的全新 Web profile 中做过冒烟检查；插件成功加载，本地健康检查路由返回成功。其使用的接口也已对照该版本源码检查。
 - 包 metadata 仍支持 DSH `>=0.1.0-rc.7 <0.2.0`，以及 `0.1.7-alpha.1` 到 `0.1.7` 这一发布线。
 - 替代进程使用 profile 正常的 DSH Web 启动路径和配置端口；插件不会选择 GPU、模型或端口。
-- 重启恢复需要根浏览器会话在接力窗口内重新连接。
+- 重启恢复需要根浏览器会话在接力窗口内重新连接。浏览器必须允许同源信标和 token 交换请求。
 - 如果进程在写入重启标记之前就被强制结束，插件无法提供会话接力。
 - 浏览器必须允许连接本地 DSH 启动 URL。浏览器策略、外部代理或主机级进程管理器仍可能阻止恢复。
 - 某些 provider 错误可能需要填写精确的可恢复错误片段。过宽的片段可能重复请求，应避免使用。

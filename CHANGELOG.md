@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.6 - 2026-09-29
+
+- Keep the current DSH page mounted through host restarts and let its live connections recover in place.
+- Send restart and stop actions with a same-origin beacon, then exchange the replacement launch token in the background.
+- Document page-preserving reconnect and the browser request fallback.
+
 ## 0.1.5 - 2026-09-29
 
 - Submit browser restart and stop actions as same-origin page navigations so open streaming connections cannot hold them in the fetch queue.

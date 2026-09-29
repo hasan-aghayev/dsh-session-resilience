@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.7 - 2026-09-29
+
+- Explicitly reconnect DSH's live connection after exchanging the replacement host token, and wait until DSH reports a connected session before reporting success.
+- Add a safe console diagnostic that identifies which restart stage failed without logging the launch URL or token.
+- Clarify the in-place reconnect steps and readiness check.
+
 ## 0.1.6 - 2026-09-29
 
 - Keep the current DSH page mounted through host restarts and let its live connections recover in place.

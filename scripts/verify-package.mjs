@@ -54,6 +54,7 @@ if (!clientBundle.includes('plugins.item') || clientBundle.includes('settings.pl
 if (!clientBundle.includes('configForms')) throw new Error('Client bundle does not load the configuration form service.');
 if (!clientBundle.includes('navigator.sendBeacon')
   || !clientBundle.includes('credentials: "same-origin"')
+  || !clientBundle.includes('reconnectAndWaitForConnected')
   || clientBundle.includes('form.target = "_self"')) {
   throw new Error('Client bundle does not preserve the page while requesting a restart.');
 }

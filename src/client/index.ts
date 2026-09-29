@@ -19,6 +19,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client';
 import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client';
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client';
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client';
+import { attachConnection, type ReconnectableConnection } from './connection-control.js';
 import { type AutoContinueSettings } from './engine.ts';
 import { en, zh, type SettingsCardKey } from './locales.ts';
 import {
@@ -42,7 +43,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Services required by this plugin. */
-export const inject = ['slots', 'locale', 'configForms'];
+export const inject = ['slots', 'locale', 'configForms', 'connection'];
 
 // 浏览器侧辅助(设置卡片用): 桥状态读取与暂停解除。
 export {
@@ -58,6 +59,9 @@ export {
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
+  const connection = ctx.get('connection') as ReconnectableConnection;
+  ctx.effect(() => attachConnection(connection), 'auto-continue: DSH connection');
+
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'auto-continue: dictionaries');
 
   const scope = ctx.configForms.get<AutoContinueSettings>(SETTINGS_NS);

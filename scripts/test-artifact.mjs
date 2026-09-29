@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { test } from 'node:test';
 import vm from 'node:vm';
+import { attachConnection, reconnectAndWaitForConnected } from '../src/client/connection-control.js';
 import { fetchWithTimeout, singleFlight } from '../src/client/request.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -40,7 +41,7 @@ test('published manifest and host artifacts expose the standalone package', asyn
   const manifest = await readJson(join(root, 'package.json'));
   const host = await readFile(join(root, 'lib/index.js'), 'utf8');
   assert.equal(manifest.name, 'dsh-session-resilience');
-  assert.equal(manifest.version, '0.1.6');
+  assert.equal(manifest.version, '0.1.7');
   assert.equal(manifest.engines.dsh, '>=0.1.0-rc.7 <0.2.0 || >=0.1.7-alpha.1 <0.1.8 || 0.2.0-rc.2 || ^0.2.0');
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml');
   assert.equal((await readFile(join(root, 'cordis.patch.yml'), 'utf8')).includes('dsh-session-resilience'), true);
@@ -87,12 +88,48 @@ test('client requests time out and concurrent status checks share one request', 
   assert.equal(await next, 'ready');
 });
 
+test('restart reconnects the DSH connection and waits for it to be ready', async () => {
+  let state = 'connected';
+  let reconnects = 0;
+  const listeners = new Set();
+  const connection = {
+    reconnect() {
+      reconnects += 1;
+      state = 'connecting';
+      for (const listener of listeners) listener();
+      setTimeout(() => {
+        state = 'connected';
+        for (const listener of listeners) listener();
+      }, 0);
+    },
+    state: {
+      getSnapshot: () => state,
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    },
+  };
+
+  const detach = attachConnection(connection);
+  try {
+    await reconnectAndWaitForConnected(1_000);
+    assert.equal(reconnects, 1);
+    assert.equal(state, 'connected');
+  } finally {
+    detach();
+  }
+  await assert.rejects(reconnectAndWaitForConnected(1_000), /DSH connection service is unavailable/);
+});
+
 test('browser restart controls reconnect in place and the host keeps its legacy handoff route', async () => {
   const client = await readFile(join(root, 'lib/client.js'), 'utf8');
   const host = await readFile(join(root, 'lib/index.js'), 'utf8');
   assert.match(client, /navigator\.sendBeacon/);
   assert.match(client, /waitForReplacementHost/);
   assert.match(client, /credentials: "same-origin"/);
+  assert.match(client, /reconnectAndWaitForConnected/);
+  assert.match(client, /reconnecting the DSH page/);
   assert.doesNotMatch(client, /form\.target = "_self"/);
   assert.doesNotMatch(client, /window\.location\.(?:assign|replace)\(/);
   assert.match(host, /function restartDocument/);
@@ -106,6 +143,7 @@ test('published client registers the settings card and sidebar controls', async 
   let loaderDefinition;
   let beaconCount = 0;
   let tokenExchanged = false;
+  let reconnectCount = 0;
   let formCount = 0;
   const context = vm.createContext({
     window: {
@@ -184,7 +222,7 @@ test('published client registers the settings card and sidebar controls', async 
   plugin.apply({
     effect(effect, label) {
       effects.push(effect);
-      if (label === 'auto-continue: settings page') return effect();
+      if (label === 'auto-continue: settings page' || label === 'auto-continue: DSH connection') return effect();
       return () => {};
     },
     locale: {
@@ -200,6 +238,16 @@ test('published client registers the settings card and sidebar controls', async 
       whileServed(_namespaces, register) { return register(); },
     },
     on: () => () => {},
+    get(name) {
+      assert.equal(name, 'connection');
+      return {
+        reconnect() { reconnectCount += 1; },
+        state: {
+          getSnapshot: () => 'connected',
+          subscribe: () => () => {},
+        },
+      };
+    },
     slots: {
       inject: (_name, register) => { register(); return () => {}; },
       register: (options, component) => {
@@ -209,7 +257,7 @@ test('published client registers the settings card and sidebar controls', async 
     },
   });
 
-  assert.equal(effects.length, 4);
+  assert.equal(effects.length, 5);
   const settings = registrations.find(({ options }) => options.name === 'plugins.item');
   assert.ok(settings);
   assert.equal(settings.options.id, 'restart-continue');
@@ -241,7 +289,9 @@ test('published client registers the settings card and sidebar controls', async 
   restart.props.onClick();
   restart.props.onClick();
   await waitFor(() => tokenExchanged);
+  await waitFor(() => reconnectCount > 0);
   assert.equal(beaconCount, 1);
+  assert.equal(reconnectCount, 1);
   assert.equal(formCount, 0);
   assert.equal(context.window.location.href, 'http://127.0.0.1:3080/');
 });

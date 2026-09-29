@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client';
 import type { SettingsCardKey } from './locales.ts';
+import { reconnectAndWaitForConnected } from './connection-control.js';
 import { fetchWithTimeout, singleFlight } from './request.js';
 
 type RestartActionProps = PropsRuntime<'sidebar.footer.action'> & PropsLocale<'auto-continue'>;
@@ -18,6 +19,7 @@ const STATUS_REQUEST_TIMEOUT_MS = 2_500;
 const ACTION_REQUEST_TIMEOUT_MS = 5_000;
 const STATUS_REFRESH_INTERVAL_MS = 3_000;
 const RESTART_WAIT_TIMEOUT_MS = 60_000;
+const CONNECTION_RECOVERY_TIMEOUT_MS = 20_000;
 
 function statusUrl(): string {
   return '/dsh-restart/status';
@@ -46,7 +48,11 @@ async function waitForReplacementHost(previousInstanceId: string): Promise<Resta
   while (Date.now() < deadline) {
     try {
       const status = await readStatus();
-      if (status.instanceId !== undefined && status.instanceId !== previousInstanceId && status.launchUrl !== undefined) return status;
+      const instanceId = status.instanceId;
+      const launchUrl = status.launchUrl;
+      if (instanceId !== undefined && instanceId !== previousInstanceId && launchUrl !== undefined) {
+        return { ...status, instanceId, launchUrl };
+      }
     } catch {
       // The old Host is expected to refuse requests while the replacement starts.
     }
@@ -99,23 +105,31 @@ export function RestartActions({ t }: RestartActionProps) {
     setBusy(action);
     setMessage(undefined);
     let previousInstanceId: string | undefined;
+    let phase = 'checking the current DSH instance';
     try {
       if (action === 'restart') {
         const previous = await readStatus();
         if (previous.instanceId === undefined) throw new Error('current DSH instance is unavailable');
         previousInstanceId = previous.instanceId;
       }
+      phase = 'requesting DSH restart';
       await sendAction(action);
       if (action === 'restart') {
         if (previousInstanceId === undefined) throw new Error('current DSH instance is unavailable');
         setOnline(undefined);
+        phase = 'waiting for the replacement DSH instance';
         const replacement = await waitForReplacementHost(previousInstanceId);
+        phase = 'authenticating the replacement DSH instance';
         await authenticateReplacement(replacement.launchUrl);
+        phase = 'reconnecting the DSH page';
+        await reconnectAndWaitForConnected(CONNECTION_RECOVERY_TIMEOUT_MS);
         setOnline(true);
       } else {
         setOnline(false);
       }
-    } catch {
+    } catch (error) {
+      const kind = error instanceof Error ? error.name : 'unknown error';
+      console.error(`[dsh-session-resilience] ${phase} failed (${kind})`);
       if (action === 'restart') setOnline(false);
       setMessage(action === 'restart' ? 'restart.restartFailed' : 'restart.shutdownFailed');
     } finally {

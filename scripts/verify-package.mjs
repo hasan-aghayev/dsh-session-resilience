@@ -55,6 +55,9 @@ if (!clientBundle.includes('configForms')) throw new Error('Client bundle does n
 if (!clientBundle.includes('navigator.sendBeacon')
   || !clientBundle.includes('credentials: "same-origin"')
   || !clientBundle.includes('reconnectAndWaitForConnected')
+  || !clientBundle.includes('createRestartRequestId')
+  || !clientBundle.includes('status.restartRequestId === restartRequestId')
+  || clientBundle.includes('STATUS_REFRESH_INTERVAL_MS')
   || clientBundle.includes('form.target = "_self"')) {
   throw new Error('Client bundle does not preserve the page while requesting a restart.');
 }
@@ -67,6 +70,8 @@ for (const marker of [
   'restartResumeWindowMs: 300 * 1e3',
   'maxConsecutive: 2',
   'function isLoopbackRequest',
+  'invalid restart request id',
+  'restartRequestId',
   'request body too large',
   'cannot prepare restart handoff',
   'bridgeRouteDisposers',

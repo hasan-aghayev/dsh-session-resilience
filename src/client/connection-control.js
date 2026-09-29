@@ -22,6 +22,23 @@ export function attachConnection(connection) {
 }
 
 /**
+ * Read the current DSH connection state without opening another browser request.
+ * @returns {ConnectionState} The current state, or undefined before attachment.
+ */
+export function getConnectionState() {
+  return activeConnection?.state.getSnapshot();
+}
+
+/**
+ * Subscribe to changes from DSH's live connection service.
+ * @param {() => void} listener - Called after the connection state changes.
+ * @returns {() => void} Disposer for the subscription.
+ */
+export function subscribeToConnection(listener) {
+  return activeConnection?.state.subscribe(listener) ?? (() => {});
+}
+
+/**
  * Restart DSH's live connection loop and wait for a new connected state.
  * @param {number} timeoutMs - Maximum wait after requesting reconnection.
  * @returns {Promise<void>} Resolves after DSH reports a connected generation.

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client';
 import type { SettingsCardKey } from './locales.ts';
-import { reconnectAndWaitForConnected } from './connection-control.js';
+import { getConnectionState, reconnectAndWaitForConnected, subscribeToConnection } from './connection-control.js';
 import { fetchWithTimeout, singleFlight } from './request.js';
 
 type RestartActionProps = PropsRuntime<'sidebar.footer.action'> & PropsLocale<'auto-continue'>;
@@ -11,13 +11,13 @@ interface RestartStatus {
   ok: boolean;
   instanceId?: string;
   launchUrl?: string;
+  restartRequestId?: string;
 }
 
 type BusyAction = 'restart' | 'shutdown' | undefined;
 
 const STATUS_REQUEST_TIMEOUT_MS = 2_500;
 const ACTION_REQUEST_TIMEOUT_MS = 5_000;
-const STATUS_REFRESH_INTERVAL_MS = 3_000;
 const RESTART_WAIT_TIMEOUT_MS = 60_000;
 const CONNECTION_RECOVERY_TIMEOUT_MS = 20_000;
 
@@ -31,8 +31,14 @@ const readStatus = singleFlight(async (): Promise<RestartStatus> => {
   return await response.json() as RestartStatus;
 });
 
-async function sendAction(action: Exclude<BusyAction, undefined>): Promise<void> {
-  const endpoint = `/dsh-restart/${action}`;
+function createRestartRequestId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function sendAction(action: Exclude<BusyAction, undefined>, restartRequestId?: string): Promise<void> {
+  const query = restartRequestId === undefined ? '' : `?requestId=${encodeURIComponent(restartRequestId)}`;
+  const endpoint = `/dsh-restart/${action}${query}`;
   if (typeof navigator.sendBeacon === 'function'
     && navigator.sendBeacon(endpoint, new Blob([], { type: 'text/plain' }))) return;
 
@@ -43,14 +49,14 @@ async function sendAction(action: Exclude<BusyAction, undefined>): Promise<void>
   if (!response.ok) throw new Error(`action ${response.status}`);
 }
 
-async function waitForReplacementHost(previousInstanceId: string): Promise<RestartStatus & { instanceId: string; launchUrl: string }> {
+async function waitForReplacementHost(restartRequestId: string): Promise<RestartStatus & { instanceId: string; launchUrl: string }> {
   const deadline = Date.now() + RESTART_WAIT_TIMEOUT_MS;
   while (Date.now() < deadline) {
     try {
       const status = await readStatus();
       const instanceId = status.instanceId;
       const launchUrl = status.launchUrl;
-      if (instanceId !== undefined && instanceId !== previousInstanceId && launchUrl !== undefined) {
+      if (instanceId !== undefined && status.restartRequestId === restartRequestId && launchUrl !== undefined) {
         return { ...status, instanceId, launchUrl };
       }
     } catch {
@@ -85,18 +91,11 @@ export function RestartActions({ t }: RestartActionProps) {
   const submitted = useRef(false);
 
   useEffect(() => {
-    let active = true;
     const refresh = (): void => {
-      void readStatus()
-        .then(() => { if (active) setOnline(true) })
-        .catch(() => { if (active) setOnline(false) });
+      setOnline(getConnectionState() === 'connected');
     };
     refresh();
-    const timer = window.setInterval(refresh, STATUS_REFRESH_INTERVAL_MS);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
+    return subscribeToConnection(refresh);
   }, []);
 
   const run = async (action: Exclude<BusyAction, undefined>): Promise<void> => {
@@ -104,21 +103,15 @@ export function RestartActions({ t }: RestartActionProps) {
     submitted.current = true;
     setBusy(action);
     setMessage(undefined);
-    let previousInstanceId: string | undefined;
-    let phase = 'checking the current DSH instance';
+    const restartRequestId = action === 'restart' ? createRestartRequestId() : undefined;
+    let phase = 'requesting DSH restart';
     try {
+      await sendAction(action, restartRequestId);
       if (action === 'restart') {
-        const previous = await readStatus();
-        if (previous.instanceId === undefined) throw new Error('current DSH instance is unavailable');
-        previousInstanceId = previous.instanceId;
-      }
-      phase = 'requesting DSH restart';
-      await sendAction(action);
-      if (action === 'restart') {
-        if (previousInstanceId === undefined) throw new Error('current DSH instance is unavailable');
+        if (restartRequestId === undefined) throw new Error('restart request id is unavailable');
         setOnline(undefined);
         phase = 'waiting for the replacement DSH instance';
-        const replacement = await waitForReplacementHost(previousInstanceId);
+        const replacement = await waitForReplacementHost(restartRequestId);
         phase = 'authenticating the replacement DSH instance';
         await authenticateReplacement(replacement.launchUrl);
         phase = 'reconnecting the DSH page';

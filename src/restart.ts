@@ -18,10 +18,11 @@ const INSTANCE_ID = `${process.pid}-${Date.now()}`
 const HELPER_FILE = fileURLToPath(new URL('./restart-helper.cjs', import.meta.url))
 
 type RestartRecord = { sessionIds: string[]; restartAt: string; pid: number }
-type RestartMarker = { newPid?: number; launchUrl?: string }
+type RestartMarker = { requestId?: string; newPid?: number; launchUrl?: string }
 type RestartResult = {
   ok: true
   action: 'restart'
+  requestId: string
   instanceId: string
   oldPid: number
   port: number
@@ -84,12 +85,14 @@ function readRecord(): RestartRecord | undefined {
   }
 }
 
-function currentLaunchUrl(port: number): string | undefined {
+function currentLaunch(port: number): { url: string; requestId?: string } | undefined {
   try {
     const marker = JSON.parse(readFileSync(markerPath(port), 'utf8')) as RestartMarker
-    return marker.newPid === process.pid && typeof marker.launchUrl === 'string'
-      ? marker.launchUrl
-      : undefined
+    if (marker.newPid !== process.pid || typeof marker.launchUrl !== 'string') return undefined
+    return {
+      url: marker.launchUrl,
+      ...(typeof marker.requestId === 'string' ? { requestId: marker.requestId } : {}),
+    }
   } catch {
     return undefined
   }
@@ -134,8 +137,24 @@ export function resolvePort(ctx: Context, fallback = 3080): number {
 }
 
 type LocalRequest = {
+  url?: string | undefined
   socket?: { remoteAddress?: string | undefined }
   headers: Record<string, string | string[] | undefined>
+}
+
+/** Read the optional browser-generated restart id from the request URL. */
+function restartRequestId(req: LocalRequest): { provided: boolean; value?: string } {
+  if (typeof req.url !== 'string') return { provided: false }
+  try {
+    const values = new URL(req.url, 'http://127.0.0.1').searchParams.getAll('requestId')
+    if (values.length === 0) return { provided: false }
+    const [value] = values
+    return values.length === 1 && value !== undefined && /^[0-9a-f]{32}$/.test(value)
+      ? { provided: true, value }
+      : { provided: true }
+  } catch {
+    return { provided: false }
+  }
 }
 
 /** Accept requests that reached the host directly from the local machine. */
@@ -246,7 +265,7 @@ function scheduleExit(ctx: Context): void {
   }, 2_000)
 }
 
-function restart(ctx: Context, port: number): RestartResult {
+function restart(ctx: Context, port: number, requestId = randomBytes(16).toString('hex')): RestartResult {
   const sessionIds = runningSessionIds(ctx)
   const out = logPath('out')
   const err = logPath('err')
@@ -254,7 +273,7 @@ function restart(ctx: Context, port: number): RestartResult {
   try {
     writeFileSync(flagPath(), String(Date.now()), 'utf8')
     writeFileSync(resumePath(), JSON.stringify({ sessionIds, restartAt: new Date().toISOString(), pid: process.pid }, null, 2), 'utf8')
-    writeFileSync(marker, JSON.stringify({ from: INSTANCE_ID, oldPid: process.pid, port, requestedAt: new Date().toISOString() }, null, 2), 'utf8')
+    writeFileSync(marker, JSON.stringify({ requestId, from: INSTANCE_ID, oldPid: process.pid, port, requestedAt: new Date().toISOString() }, null, 2), 'utf8')
   } catch (error) {
     clear(flagPath())
     clear(resumePath())
@@ -279,7 +298,7 @@ function restart(ctx: Context, port: number): RestartResult {
   })
   helper.unref()
   scheduleExit(ctx)
-  return { ok: true, action: 'restart', instanceId: INSTANCE_ID, oldPid: process.pid, port, ...helper.pid === undefined ? {} : { helperPid: helper.pid }, sessionIds, logOut: out, logErr: err }
+  return { ok: true, action: 'restart', requestId, instanceId: INSTANCE_ID, oldPid: process.pid, port, ...helper.pid === undefined ? {} : { helperPid: helper.pid }, sessionIds, logOut: out, logErr: err }
 }
 
 function shutdown(ctx: Context, port: number): ShutdownResult {
@@ -319,12 +338,15 @@ export class RestartController {
       handler: (req, res) => {
         if (!isLoopbackRequest(req)) { json(res, 403, { ok: false, error: 'local requests only' }); return }
         const marker = readRecord()
-        const launchUrl = currentLaunchUrl(resolvePort(this.ctx))
+        const launch = currentLaunch(resolvePort(this.ctx))
         json(res, 200, {
           ok: true,
           instanceId: INSTANCE_ID,
           restarted: marker !== undefined && marker.pid !== process.pid,
-          ...(launchUrl === undefined ? {} : { launchUrl }),
+          ...(launch === undefined ? {} : {
+            launchUrl: launch.url,
+            ...(launch.requestId === undefined ? {} : { restartRequestId: launch.requestId }),
+          }),
         })
       },
     }))
@@ -333,7 +355,9 @@ export class RestartController {
       handler: (req, res) => {
         if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'method not allowed' }); return }
         if (!trustedLoopback(req)) { json(res, 403, { ok: false, error: 'untrusted origin' }); return }
-        const result = restart(this.ctx, resolvePort(this.ctx))
+        const request = restartRequestId(req)
+        if (request.provided && request.value === undefined) { json(res, 400, { ok: false, error: 'invalid restart request id' }); return }
+        const result = restart(this.ctx, resolvePort(this.ctx), request.value)
         if (wantsHtml(req)) restartDocument(res)
         else json(res, 200, result)
       },

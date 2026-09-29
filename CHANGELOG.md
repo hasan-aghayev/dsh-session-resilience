@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.8 - 2026-09-29
+
+- Queue the restart command before requesting status, so a stalled browser fetch cannot prevent the restart from starting.
+- Correlate replacement readiness with a one-time request id and show connection health from DSH's public connection service instead of a repeating status request.
+- Document the beacon-first handoff and token-matched readiness check.
+
 ## 0.1.7 - 2026-09-29
 
 - Explicitly reconnect DSH's live connection after exchanging the replacement host token, and wait until DSH reports a connected session before reporting success.

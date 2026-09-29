@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { test } from 'node:test';
 import vm from 'node:vm';
-import { attachConnection, reconnectAndWaitForConnected } from '../src/client/connection-control.js';
+import { attachConnection, getConnectionState, reconnectAndWaitForConnected, subscribeToConnection } from '../src/client/connection-control.js';
 import { fetchWithTimeout, singleFlight } from '../src/client/request.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -41,13 +41,15 @@ test('published manifest and host artifacts expose the standalone package', asyn
   const manifest = await readJson(join(root, 'package.json'));
   const host = await readFile(join(root, 'lib/index.js'), 'utf8');
   assert.equal(manifest.name, 'dsh-session-resilience');
-  assert.equal(manifest.version, '0.1.7');
+  assert.equal(manifest.version, '0.1.8');
   assert.equal(manifest.engines.dsh, '>=0.1.0-rc.7 <0.2.0 || >=0.1.7-alpha.1 <0.1.8 || 0.2.0-rc.2 || ^0.2.0');
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml');
   assert.equal((await readFile(join(root, 'cordis.patch.yml'), 'utf8')).includes('dsh-session-resilience'), true);
   assert.equal(host.includes('restartResumeWindowMs: 300 * 1e3'), true);
   for (const marker of [
     'function isLoopbackRequest',
+    'invalid restart request id',
+    'restartRequestId',
     'request body too large',
     'cannot prepare restart handoff',
     'bridgeRouteDisposers',
@@ -112,13 +114,19 @@ test('restart reconnects the DSH connection and waits for it to be ready', async
   };
 
   const detach = attachConnection(connection);
+  let stateChanges = 0;
+  const unsubscribe = subscribeToConnection(() => { stateChanges += 1; });
   try {
+    assert.equal(getConnectionState(), 'connected');
     await reconnectAndWaitForConnected(1_000);
     assert.equal(reconnects, 1);
     assert.equal(state, 'connected');
+    assert.equal(stateChanges, 2);
   } finally {
+    unsubscribe();
     detach();
   }
+  assert.equal(getConnectionState(), undefined);
   await assert.rejects(reconnectAndWaitForConnected(1_000), /DSH connection service is unavailable/);
 });
 
@@ -129,6 +137,9 @@ test('browser restart controls reconnect in place and the host keeps its legacy 
   assert.match(client, /waitForReplacementHost/);
   assert.match(client, /credentials: "same-origin"/);
   assert.match(client, /reconnectAndWaitForConnected/);
+  assert.match(client, /createRestartRequestId/);
+  assert.match(client, /status\.restartRequestId === restartRequestId/);
+  assert.doesNotMatch(client, /STATUS_REFRESH_INTERVAL_MS/);
   assert.match(client, /reconnecting the DSH page/);
   assert.doesNotMatch(client, /form\.target = "_self"/);
   assert.doesNotMatch(client, /window\.location\.(?:assign|replace)\(/);
@@ -142,13 +153,15 @@ test('browser restart controls reconnect in place and the host keeps its legacy 
 test('published client registers the settings card and sidebar controls', async () => {
   let loaderDefinition;
   let beaconCount = 0;
+  let statusReads = 0;
+  let beaconRequestId;
   let tokenExchanged = false;
   let reconnectCount = 0;
   let formCount = 0;
   const context = vm.createContext({
     window: {
       clearInterval() {},
-      setInterval() { return 1; },
+      setInterval() { throw new Error('restart controls must not poll the status route'); },
       setTimeout,
       location: {
         href: 'http://127.0.0.1:3080/',
@@ -161,25 +174,31 @@ test('published client registers the settings card and sidebar controls', async 
     },
     navigator: {
       sendBeacon(url) {
-        assert.equal(url, '/dsh-restart/restart');
+        const endpoint = new URL(url, 'http://127.0.0.1:3080/');
+        assert.equal(endpoint.pathname, '/dsh-restart/restart');
+        beaconRequestId = endpoint.searchParams.get('requestId');
+        assert.match(beaconRequestId, /^[0-9a-f]{32}$/);
         beaconCount += 1;
         return true;
       },
     },
     fetch: async (input) => {
       if (String(input) === '/dsh-restart/status') {
-        return {
+        statusReads += 1;
+        assert.equal(beaconCount, 1, 'the restart request must be queued before status polling begins');
+        return { ok: true, json: async () => ({
           ok: true,
-          json: async () => beaconCount === 0
-            ? { ok: true, instanceId: 'old' }
-            : { ok: true, instanceId: 'new', launchUrl: 'http://127.0.0.1:3080/?token=fresh' },
-        };
+          instanceId: 'new',
+          restartRequestId: beaconRequestId,
+          launchUrl: 'http://127.0.0.1:3080/?token=fresh',
+        }) };
       }
       assert.equal(String(input), 'http://127.0.0.1:3080/?token=fresh');
       tokenExchanged = true;
       return { ok: true, arrayBuffer: async () => new ArrayBuffer(0) };
     },
     Blob,
+    crypto: { getRandomValues: (bytes) => { bytes.fill(26); return bytes; } },
     URL,
     AbortController,
     console,
@@ -291,6 +310,7 @@ test('published client registers the settings card and sidebar controls', async 
   await waitFor(() => tokenExchanged);
   await waitFor(() => reconnectCount > 0);
   assert.equal(beaconCount, 1);
+  assert.equal(statusReads, 1);
   assert.equal(reconnectCount, 1);
   assert.equal(formCount, 0);
   assert.equal(context.window.location.href, 'http://127.0.0.1:3080/');

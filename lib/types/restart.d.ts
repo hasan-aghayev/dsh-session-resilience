@@ -4,6 +4,7 @@ import type { AutoContinueConfig } from './shared/core.ts';
 type RestartResult = {
     ok: true;
     action: 'restart';
+    requestId: string;
     instanceId: string;
     oldPid: number;
     port: number;
@@ -22,6 +23,7 @@ type ShutdownResult = {
 /** Resolve the active Web port without making 3080 a second profile. */
 export declare function resolvePort(ctx: Context, fallback?: number): number;
 type LocalRequest = {
+    url?: string | undefined;
     socket?: {
         remoteAddress?: string | undefined;
     };

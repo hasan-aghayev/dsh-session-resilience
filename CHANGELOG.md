@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.4 - 2026-09-29
+
+- Cancel stalled browser requests and retry status checks after they settle.
+- Share one in-flight status request between the sidebar indicator and restart handoff.
 - Document how to update profiles pinned to the DSH 0.1.1 client bundle when startup waits for `settingsScope`.
 
 ## 0.1.3 - 2026-09-29

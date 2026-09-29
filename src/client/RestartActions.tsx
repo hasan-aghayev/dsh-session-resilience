@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client';
 import type { SettingsCardKey } from './locales.ts';
+import { fetchWithTimeout, singleFlight } from './request.js';
 
 type RestartActionProps = PropsRuntime<'sidebar.footer.action'> & PropsLocale<'auto-continue'>;
 
@@ -13,15 +14,19 @@ interface RestartStatus {
 
 type BusyAction = 'restart' | 'shutdown' | undefined;
 
+const STATUS_REQUEST_TIMEOUT_MS = 2_500;
+const ACTION_REQUEST_TIMEOUT_MS = 5_000;
+const STATUS_REFRESH_INTERVAL_MS = 3_000;
+
 function statusUrl(): string {
   return '/dsh-restart/status';
 }
 
-async function readStatus(): Promise<RestartStatus> {
-  const response = await fetch(statusUrl(), { cache: 'no-store' });
+const readStatus = singleFlight(async (): Promise<RestartStatus> => {
+  const response = await fetchWithTimeout(statusUrl(), { cache: 'no-store' }, STATUS_REQUEST_TIMEOUT_MS);
   if (!response.ok) throw new Error(`status ${response.status}`);
   return await response.json() as RestartStatus;
-}
+});
 
 async function waitForLaunchUrl(): Promise<string> {
   const deadline = Date.now() + 60_000;
@@ -51,7 +56,7 @@ export function RestartActions({ t }: RestartActionProps) {
         .catch(() => { if (active) setOnline(false) });
     };
     refresh();
-    const timer = window.setInterval(refresh, 3000);
+    const timer = window.setInterval(refresh, STATUS_REFRESH_INTERVAL_MS);
     return () => {
       active = false;
       window.clearInterval(timer);
@@ -62,10 +67,10 @@ export function RestartActions({ t }: RestartActionProps) {
     setBusy(action);
     setMessage(undefined);
     try {
-      const response = await fetch(`/dsh-restart/${action}`, {
+      const response = await fetchWithTimeout(`/dsh-restart/${action}`, {
         method: 'POST',
         headers: { accept: 'application/json' },
-      });
+      }, ACTION_REQUEST_TIMEOUT_MS);
       if (!response.ok) throw new Error(`action ${response.status}`);
       setOnline(action === 'restart' ? undefined : false);
       if (action === 'restart') {

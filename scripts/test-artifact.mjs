@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { test } from 'node:test';
 import vm from 'node:vm';
+import { fetchWithTimeout, singleFlight } from '../src/client/request.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -39,7 +40,7 @@ test('published manifest and host artifacts expose the standalone package', asyn
   const manifest = await readJson(join(root, 'package.json'));
   const host = await readFile(join(root, 'lib/index.js'), 'utf8');
   assert.equal(manifest.name, 'dsh-session-resilience');
-  assert.equal(manifest.version, '0.1.3');
+  assert.equal(manifest.version, '0.1.4');
   assert.equal(manifest.engines.dsh, '>=0.1.0-rc.7 <0.2.0 || >=0.1.7-alpha.1 <0.1.8 || 0.2.0-rc.2 || ^0.2.0');
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml');
   assert.equal((await readFile(join(root, 'cordis.patch.yml'), 'utf8')).includes('dsh-session-resilience'), true);
@@ -52,6 +53,38 @@ test('published manifest and host artifacts expose the standalone package', asyn
   ]) {
     assert.equal(host.includes(marker), true, `missing production marker: ${marker}`);
   }
+});
+
+test('client requests time out and concurrent status checks share one request', async () => {
+  let attempts = 0;
+  const fetcher = (_input, { signal }) => {
+    attempts += 1;
+    if (attempts > 1) return Promise.resolve({ ok: true });
+    return new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+    });
+  };
+
+  await assert.rejects(fetchWithTimeout('/dsh-restart/status', {}, 10, fetcher), { name: 'AbortError' });
+  assert.equal((await fetchWithTimeout('/dsh-restart/status', {}, 1_000, fetcher)).ok, true);
+  assert.equal(attempts, 2);
+
+  let calls = 0;
+  const read = singleFlight(() => {
+    calls += 1;
+    return calls === 1 ? Promise.reject(new Error('local host is restarting')) : Promise.resolve('ready');
+  });
+  const first = read();
+  const concurrent = read();
+  assert.equal(first, concurrent);
+  await Promise.resolve();
+  assert.equal(calls, 1);
+  await assert.rejects(first, /local host is restarting/);
+  const next = read();
+  assert.notEqual(next, first);
+  await Promise.resolve();
+  assert.equal(calls, 2);
+  assert.equal(await next, 'ready');
 });
 
 test('published client registers the settings card and sidebar controls', async () => {

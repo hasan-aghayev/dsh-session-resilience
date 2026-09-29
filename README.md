@@ -42,10 +42,10 @@ dsh plugin --profile <profile> remove dsh-session-resilience
 
 ### Update an existing profile
 
-Publishing a release does not replace the archive already pinned in a profile's `package.json`. If DSH reports `dsh-session-resilience: pending (waiting for service: settingsScope)`, that profile is still using the 0.1.1 client bundle, which requests the removed settings service. Update the profile to 0.1.10 and restart it:
+Publishing a release does not replace the archive already pinned in a profile's `package.json`. If DSH reports `dsh-session-resilience: pending (waiting for service: settingsScope)`, that profile is still using the 0.1.1 client bundle, which requests the removed settings service. Update the profile to 0.1.11 and restart it:
 
 ```sh
-dsh plugin --profile web add -w https://github.com/hasan-aghayev/dsh-session-resilience/releases/download/v0.1.10/dsh-session-resilience-0.1.10.tgz
+dsh plugin --profile web add -w https://github.com/hasan-aghayev/dsh-session-resilience/releases/download/v0.1.11/dsh-session-resilience-0.1.11.tgz
 ```
 
 Replace `web` with the profile name. The DSH-managed command updates the pinned package URL and installed files; adding a release to a catalog does not upgrade profiles that already contain an older archive.
@@ -59,7 +59,7 @@ The web sidebar keeps two compact controls beside the status indicator:
 - **Restart** records active root sessions, starts a replacement DSH host on the configured port, and reconnects the current page after the replacement is ready.
 - **Stop** stops the active DSH host without starting a replacement process; the current page stays open but disconnected.
 
-The status indicator follows DSH's public connection service and does not poll the host over HTTP. Restart and stop send a same-origin request and wait for DSH to confirm acceptance before recovery begins. During restart, the helper reads the replacement host’s own instance id (not the launcher process id) and waits for that host to report the same one-time request id before publishing its launch URL. The sidebar then exchanges its launch token in the background on the current origin, asks DSH to reconnect the existing page, and waits until the new connection is ready. The existing page, view, and unsent draft remain in place. If startup, authentication, or connection recovery takes longer than its deadline, the button reports an error and logs only the failed stage and error type; it never logs the launch URL or token. The page can still be refreshed manually if the browser cannot restore its connection.
+The status indicator follows DSH's public connection service and does not poll the host over HTTP. Restart and stop send a same-origin request without the DSH session cookie; the host accepts only direct loopback requests whose browser origin matches the host. The controls allow 15 seconds for DSH to confirm acceptance before recovery begins. During restart, the helper reads the replacement host’s own instance id (not the launcher process id) and waits for that host to report the same one-time request id before publishing its launch URL. The sidebar then exchanges its launch token in the background on the current origin, asks DSH to reconnect the existing page, and waits until the new connection is ready. The existing page, view, and unsent draft remain in place. If startup, authentication, or connection recovery takes longer than its deadline, the button reports an error and logs only the failed stage and error type; it never logs the launch URL or token. The page can still be refreshed manually if the browser cannot restore its connection.
 
 The settings card remains available when automatic recovery is disabled, so a user can still perform a deliberate manual restart or stop.
 

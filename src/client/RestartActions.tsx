@@ -17,7 +17,7 @@ interface RestartStatus {
 type BusyAction = 'restart' | 'shutdown' | undefined;
 
 const STATUS_REQUEST_TIMEOUT_MS = 2_500;
-const ACTION_REQUEST_TIMEOUT_MS = 5_000;
+const ACTION_REQUEST_TIMEOUT_MS = 15_000;
 const RESTART_WAIT_TIMEOUT_MS = 60_000;
 const CONNECTION_RECOVERY_TIMEOUT_MS = 20_000;
 
@@ -42,7 +42,8 @@ async function sendAction(action: Exclude<BusyAction, undefined>, restartRequest
   const response = await fetchWithTimeout(endpoint, {
     method: 'POST',
     headers: { accept: 'application/json' },
-    credentials: 'same-origin',
+    // The loopback route validates Origin and does not need the DSH session cookie.
+    credentials: 'omit',
   }, ACTION_REQUEST_TIMEOUT_MS);
   if (!response.ok) throw new Error(`action ${response.status}`);
   const result = await response.json() as { ok?: boolean; requestId?: string };

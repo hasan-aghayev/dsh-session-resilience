@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.11 - 2026-09-30
+
+- Send local restart and stop requests without DSH session cookies; the host validates the loopback connection and matching browser origin.
+- Allow the browser 15 seconds to receive a restart or stop acknowledgement before reporting a request failure.
+- Document the local action-request checks and update the profile-install command.
+
 ## 0.1.10 - 2026-09-29
 
 - Match the replacement host by its own reported instance id instead of the launcher process id, so hosts started through wrappers can complete the first restart handoff.

@@ -41,7 +41,7 @@ test('published manifest and host artifacts expose the standalone package', asyn
   const manifest = await readJson(join(root, 'package.json'));
   const host = await readFile(join(root, 'lib/index.js'), 'utf8');
   assert.equal(manifest.name, 'dsh-session-resilience');
-  assert.equal(manifest.version, '0.1.10');
+  assert.equal(manifest.version, '0.1.11');
   assert.equal(manifest.engines.dsh, '>=0.1.0-rc.7 <0.2.0 || >=0.1.7-alpha.1 <0.1.8 || 0.2.0-rc.2 || ^0.2.0');
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml');
   assert.equal((await readFile(join(root, 'cordis.patch.yml'), 'utf8')).includes('dsh-session-resilience'), true);
@@ -135,6 +135,7 @@ test('browser restart controls reconnect in place and the host keeps its legacy 
   const client = await readFile(join(root, 'lib/client.js'), 'utf8');
   const host = await readFile(join(root, 'lib/index.js'), 'utf8');
   assert.match(client, /waitForReplacementHost/);
+  assert.match(client, /ACTION_REQUEST_TIMEOUT_MS = 15e3/);
   assert.match(client, /credentials: "same-origin"/);
   assert.match(client, /reconnectAndWaitForConnected/);
   assert.match(client, /createRestartRequestId/);
@@ -179,7 +180,7 @@ test('published client registers the settings card and sidebar controls', async 
       if (String(input).startsWith('/dsh-restart/restart?')) {
         const endpoint = new URL(String(input), 'http://127.0.0.1:3080/');
         assert.equal(init.method, 'POST');
-        assert.equal(init.credentials, 'same-origin');
+        assert.equal(init.credentials, 'omit');
         actionRequestId = endpoint.searchParams.get('requestId');
         assert.match(actionRequestId, /^[0-9a-f]{32}$/);
         actionCount += 1;

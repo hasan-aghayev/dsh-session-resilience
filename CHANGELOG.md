@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.12 - 2026-09-30
+
+- Always acknowledge browser restarts with JSON so the restart route cannot replace the open page with a standalone loading page.
+- Keep the sidebar client responsible for exchanging the replacement token and reconnecting the current page.
+- Update the profile installation instructions.
+
 ## 0.1.11 - 2026-09-30
 
 - Send local restart and stop requests without DSH session cookies; the host validates the loopback connection and matching browser origin.

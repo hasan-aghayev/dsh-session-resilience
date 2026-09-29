@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-resilience",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Safe DSH restarts with acknowledged handoff, verified in-place reconnect, and policy-based session recovery for DSH 0.2+",
   "type": "module",
   "main": "lib/index.js",

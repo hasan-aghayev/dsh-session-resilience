@@ -41,7 +41,7 @@ test('published manifest and host artifacts expose the standalone package', asyn
   const manifest = await readJson(join(root, 'package.json'));
   const host = await readFile(join(root, 'lib/index.js'), 'utf8');
   assert.equal(manifest.name, 'dsh-session-resilience');
-  assert.equal(manifest.version, '0.1.11');
+  assert.equal(manifest.version, '0.1.12');
   assert.equal(manifest.engines.dsh, '>=0.1.0-rc.7 <0.2.0 || >=0.1.7-alpha.1 <0.1.8 || 0.2.0-rc.2 || ^0.2.0');
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml');
   assert.equal((await readFile(join(root, 'cordis.patch.yml'), 'utf8')).includes('dsh-session-resilience'), true);
@@ -131,7 +131,7 @@ test('restart reconnects the DSH connection and waits for it to be ready', async
   await assert.rejects(reconnectAndWaitForConnected(1_000), /DSH connection service is unavailable/);
 });
 
-test('browser restart controls reconnect in place and the host keeps its legacy handoff route', async () => {
+test('browser restart controls reconnect in place without navigating the current page', async () => {
   const client = await readFile(join(root, 'lib/client.js'), 'utf8');
   const host = await readFile(join(root, 'lib/index.js'), 'utf8');
   assert.match(client, /waitForReplacementHost/);
@@ -146,11 +146,8 @@ test('browser restart controls reconnect in place and the host keeps its legacy 
   assert.match(client, /reconnecting the DSH page/);
   assert.doesNotMatch(client, /form\.target = "_self"/);
   assert.doesNotMatch(client, /window\.location\.(?:assign|replace)\(/);
-  assert.match(host, /function restartDocument/);
-  assert.match(host, /content-security-policy/);
-  assert.match(host, /window\.location\.replace\(launch\.href\)/);
-  assert.match(host, /launch\.origin === window\.location\.origin/);
-  assert.match(host, /function wantsHtml/);
+  assert.doesNotMatch(host, /function restartDocument|window\.location\.replace\(launch\.href\)/);
+  assert.match(host, /path: "\/dsh-restart\/restart"[\s\S]*?json\(res, 200, result\)/);
 });
 
 test('published client registers the settings card and sidebar controls', async () => {
@@ -181,6 +178,7 @@ test('published client registers the settings card and sidebar controls', async 
         const endpoint = new URL(String(input), 'http://127.0.0.1:3080/');
         assert.equal(init.method, 'POST');
         assert.equal(init.credentials, 'omit');
+        assert.equal(init.headers.accept, 'application/json');
         actionRequestId = endpoint.searchParams.get('requestId');
         assert.match(actionRequestId, /^[0-9a-f]{32}$/);
         actionCount += 1;
